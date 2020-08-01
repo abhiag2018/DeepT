@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import csv
 import itertools
-import re, os, sys, argparse
+import re, os, sys, shutil, argparse
 import glob
 import subprocess
 import matplotlib.pyplot as plt
@@ -38,14 +38,12 @@ def numbacountparallel(filename):
             break
     return total
 
-
 def concat_files(file_list,output_path):
     try:
-        with open(output_path, 'w') as outfile:
-            for fname in file_list:
-                with open(fname) as infile:
-                    for line in infile:
-                        outfile.write(line)
+        output = open(output_path, "wb")
+        for f in file_list:
+            shutil.copyfileobj(open(f, "rb"), output)
+        output.close()
     except e:
         print(e)
         return 1
