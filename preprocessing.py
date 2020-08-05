@@ -1,9 +1,9 @@
 import colored_traceback.always
-import os, glob, shutil, sys
+import os, glob, shutil, sys, itertools
 import pandas as pd
 import preptools as pt
 import argparse, itertools
-from parameters import baseDataDir, bgWindow, promoter, enhancer, bamDir, intersectOptions, clearRun, reRun, hg19
+from parameters import baseDataDir, bgWindow, promoter, enhancer, bamfilesInit, bamDir, intersectOptions, clearRun, reRun, hg19
 
 
 def makedirs(dirpath,exist_ok = False):
@@ -14,51 +14,63 @@ def makedirs(dirpath,exist_ok = False):
         os.makedirs(dirpath,exist_ok=exist_ok)
     return 0
 
-basename = lambda f: f.split("/")[-1].split(".")[0]+ext
+baseBaseName = lambda f: f.split("/")[-1].split(".")[0]
+midBaseName = lambda f: f.split("/")[-1].split(".")[1:-1]
 
-def tmp_bam_dir(tmp_basedir,bam_file):
-    bamf_name = pt.replace_suffix(os.path.basename(bam_file),ext='')
-    tmpBAMdir = f"{tmp_basedir}/{bamf_name}"
-    os.makedirs(tmpBAMdir,exist_ok=True)
-    return tmpBAMdir
+NameSys = lambda bam_file,name,append,ext: f"""{baseBaseName(bam_file) if bam_file else "."}/{name}{"."+".".join(append) if append else ""}.{ext}"""
+
+
+nameWinBed = 'win'
+nameIntersectBG = 'intersect_BG'
+nameIntersectWin = 'intersect_win'
+nameDnaseOut = 'DNase'
+
+tmpBaseDir = "/fastscratch/agarwa/DeepTact_tmp"
 
 ## promoter parameters
-promoter['bed-path']=  "hg19_promoter_TSS.bed"
-promoter['bg-path']= "hg19_promoter_BG.bed"
-promoter['tmp_dir']= "tmp_promoter"
+promoter['bed-path']=  f"{baseDataDir}/hg19_promoter_TSS.bed"
+promoter['bg-path']= f"{baseDataDir}/hg19_promoter_BG.bed"
+promoter['tmp-dir']= f"{tmpBaseDir}/tmp_promoter"
 
-promoter['winBed-path']=  lambda X:f"{promoter['tmp_dir']}/pr_win_{X}.bed"
-promoter['bg-intersect-out']=  lambda bam_file: f"{tmp_bam_dir(promoter['tmp_dir'],bam_file)}/intersect_pr_BG.bed"
-promoter['intersect-out']=  lambda bam_file,X:f"{tmp_bam_dir(promoter['tmp_dir'],bam_file)}/intersect_pr_{X}.bed"
-promoter['dnase-out']=  lambda bam_file:f"{tmp_bam_dir(promoter['tmp_dir'],bam_file)}/DNase_pr.npz"
+promoter['intersect-tasklist'] = f"{promoter['tmp-dir']}/prTaskList.npz"
 
-promoter['fa-out']="promoter.fa"
+promoter['winBed-path']=  lambda X:f"""{promoter['tmp-dir']}/{NameSys('',nameWinBed,[str(X)],'bed')}"""
+promoter['bg-intersect-out'] =  lambda bam_file: f"""{promoter['tmp-dir']}/{NameSys(bam_file,nameIntersectBG,midBaseName(bam_file),"bed")}"""
+promoter['intersect-out']=  lambda bam_file,X:f"""{promoter['tmp-dir']}/{NameSys(bam_file,nameIntersectWin,[str(X)]+midBaseName(bam_file),"bed")}"""
+promoter['dnase-out']=  lambda bam_file:f"""{promoter['tmp-dir']}/{NameSys(bam_file,nameDnaseOut,[],"npz")}"""
+
+promoter['fa-out']=f"{baseDataDir}/promoter.fa"
 
 ## enhancer parameters
-enhancer['bed-path']= "enhancers_fantom5/human_enhancers_window.bed"
-enhancer['bg-path']= "hg19_enhancer_BG.bed"
-enhancer['tmp_dir']= "tmp_enhancer"
+enhancer['bed-path']= f"{baseDataDir}/enhancers_fantom5/human_enhancers_window.bed"
+enhancer['bg-path']= f"{baseDataDir}/hg19_enhancer_BG.bed"
+enhancer['tmp-dir']= f"{tmpBaseDir}/tmp_enhancer"
 
-enhancer['winBed-path']= lambda X:f"{enhancer['tmp_dir']}/enh_win_{X}.bed"
-enhancer['bg-intersect-out']= lambda bam_file: f"{tmp_bam_dir(enhancer['tmp_dir'],bam_file)}/intersect_enh_BG.bed"
-enhancer['intersect-out']= lambda bam_file,X:f"{tmp_bam_dir(enhancer['tmp_dir'],bam_file)}/intersect_enh_{X}.bed"
-enhancer['dnase-out']= lambda bam_file:f"{tmp_bam_dir(enhancer['tmp_dir'],bam_file)}/DNase_enh.npz"
+enhancer['intersect-tasklist'] = f"{enhancer['tmp-dir']}/enhTaskList.npz"
 
-enhancer['fa-out']="enhancer.fa"
+enhancer['winBed-path']=  lambda X:f"""{enhancer['tmp-dir']}/{NameSys('',nameWinBed,[str(X)],'bed')}"""
+enhancer['bg-intersect-out'] =  lambda bam_file: f"""{enhancer['tmp-dir']}/{NameSys(bam_file,nameIntersectBG,midBaseName(bam_file),"bed")}"""
+enhancer['intersect-out']=  lambda bam_file,X:f"""{enhancer['tmp-dir']}/{NameSys(bam_file,nameIntersectWin,[str(X)]+midBaseName(bam_file),"bed")}"""
+enhancer['dnase-out']=  lambda bam_file:f"""{enhancer['tmp-dir']}/{NameSys(bam_file,nameDnaseOut,[],"npz")}"""
+
+enhancer['fa-out']=f"{baseDataDir}/enhancer.fa"
 
 
 ## DNase Input
 
-bamfiles = glob.glob(f"{bamDir}/**/*.REF_chr*.bam",recursive=True)
 
-def elem_preprocessing(basedir, elem, bg_window, func):
+all_chrom = list(range(1,23))+list('XY')
+chromAppend = lambda chrom:f"REF_chr{chrom}" # default for bamtools split
+bamfiles = list(itertools.chain.from_iterable(glob.glob(f"""{os.path.dirname(bamf)}/*.{chromAppend('*')}.bam""") for bamf in bamfilesInit))
+
+def elem_preprocessing(elem, bg_window, func):
     """ element pre-processing"""
-    bed_path = f"{basedir}/{elem['bed-path']}"
+    bed_path = elem['bed-path']
     headers = elem['headers']
     window = elem['window']
 
-    bg_path = f"{basedir}/{elem['bg-path']}"
-    allfield_bed = f"{basedir}/{elem['allfield-bed']}"
+    bg_path = elem['bg-path']
+    allfield_bed = elem['allfield-bed']
 
     print(f"generating main bed file: {os.path.basename(bed_path)}", end=".. ",flush=True)
     func( allfield_bed, bed_path, headers, window=window)
@@ -95,16 +107,16 @@ if __name__=="__main__":
         split_bam(args, bamfilesInit)
 
     if args.taskType=="prep" or args.taskType=="prepPr":
-        makedirs(f"{baseDataDir}/{promoter['tmp_dir']}",exist_ok=not clean_run)
-        for bam_file in bamfiles:
-            makedirs(os.path.dirname(f"{baseDataDir}/{promoter['bg-intersect-out'](bam_file)}"),exist_ok=not clean_run)
-        elem_preprocessing(baseDataDir, promoter, bgWindow, pt.process_promoter_bed)
+        makedirs(promoter['tmp-dir'],exist_ok=not clean_run)
+        for bam_file in bamfilesInit:
+            makedirs(os.path.dirname(promoter['bg-intersect-out'](bam_file)),exist_ok=not clean_run)
+        # elem_preprocessing(promoter, bgWindow, pt.process_promoter_bed)
 
     if args.taskType=="prep" or args.taskType=="prepEnh":
-        makedirs(f"{baseDataDir}/{enhancer['tmp_dir']}",exist_ok=not clean_run)
-        for bam_file in bamfiles:
-            makedirs(os.path.dirname(f"{baseDataDir}/{enhancer['bg-intersect-out'](bam_file)}"),exist_ok=not clean_run)
-        elem_preprocessing(baseDataDir, enhancer, bgWindow, pt.process_enhancer_bed)
+        makedirs(enhancer['tmp-dir'],exist_ok=not clean_run)
+        for bam_file in bamfilesInit:
+            makedirs(os.path.dirname(enhancer['bg-intersect-out'](bam_file)),exist_ok=not clean_run)
+        # elem_preprocessing(enhancer, bgWindow, pt.process_enhancer_bed)
 
 
 

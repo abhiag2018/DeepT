@@ -3,40 +3,42 @@ import glob
 import sys, os, shutil, glob, re
 import argparse, itertools
 import pandas as pd
+import numpy as np
 import math
 import preptools as pt
 
 LIMIT = None
 
 # generate element tasklist
-def intersect_tasklist(elem,bamfiles, tasktype='all'):
+def intersect_tasklist(elem,bamfiles, tasktype='all', recompute=True):
     numTasks = 0
+    output_path = elem['intersect-tasklist']
     site_window = elem['siteWindow']
     num_windows = elem['window']-site_window+1
 
     assert tasktype in ['all','bg','win']
     bg_intersect_bam = []
     if tasktype == 'all' or tasktype=='bg':
-        bg_intersect_bam =  [("intersect-bg",-1,bam_file) for bam_file in bamfiles]
-        numTasks += len(bamfiles)
+        bg_intersect_bam = [("intersect-bg",-1,bam_file) for bam_file in bamfiles if recompute or not os.path.exists(elem['bg-intersect-out'](bam_file))]
+        numTasks += len(bg_intersect_bam)
 
     win_intersect_bam = []
     if tasktype == 'all' or tasktype=='win':
-        for bam_file in bamfiles:
-            win_intersect_bam += [("intersect-win",i,bam_file) for i in range(num_windows)]
-        numTasks += num_windows*len(bamfiles)
+        win_intersect_bam = [("intersect-win",i,bam_file) for bam_file in bamfiles for i in range(num_windows) if recompute or not os.path.exists(elem['intersect-out'](bam_file, i))]
+        numTasks += len(win_intersect_bam)
 
     tasklist = bg_intersect_bam+win_intersect_bam
 
     numTasks = LIMIT if LIMIT else numTasks
     tasklist = tasklist[:numTasks]
+    np.savez(output_path,tasklist=tasklist,numTasks=numTasks)
     return tasklist,numTasks
 
 
-def generate_winBed(args, reRun, baseDir, elem):
-    bed_path = f"{baseDir}/{elem['bed-path']}"
+def generate_winBed(args, reRun, elem):
+    bed_path = elem['bed-path']
     headers = elem['headers']
-    winBedPath = lambda idx: f"{baseDir}/{elem['winBed-path'](idx)}"
+    winBedPath = lambda idx: elem['winBed-path'](idx)
     window =  elem['window']
     site_window = elem['siteWindow']
 
@@ -57,20 +59,21 @@ def generate_winBed(args, reRun, baseDir, elem):
         dry_run=False)
     return 0
 
-def intersect_elem(args, reRun, baseDir, elem, bamfiles, intersectOptions, tasktype='all'):
-    elem_tasks,elem_numTasks = intersect_tasklist(elem, bamfiles, tasktype='all')
+def intersect_elem(args, elem, bamfiles, intersectOptions, tasktype='all', recompute=True):
+    data = np.load(elem['intersect-tasklist'])
+    elem_tasks = data['tasklist']
+    elem_numTasks = data['numTasks']
 
     def process_elem(task):
         task_type, winIdx, bam_file = task
         assert task_type in ["intersect-win","intersect-bg"]
         if task_type == "intersect-win":
-            inputBed = f"{baseDir}/{elem['winBed-path'](winIdx)}"
-            outBed = f"{baseDir}/{elem['intersect-out'](bam_file, winIdx)}"
+            inputBed = elem['winBed-path'](winIdx)
+            outBed = elem['intersect-out'](bam_file, winIdx)
         else:
-            inputBed = f"{baseDir}/{elem['bg-path']}"
-            outBed = f"{baseDir}/{elem['bg-intersect-out'](bam_file)}"
-        if reRun or not os.path.exists(outBed):
-            pt.process_peaks(a=inputBed,b=bam_file, out_path = outBed,options = intersectOptions)
+            inputBed = elem['bg-path']
+            outBed = elem['bg-intersect-out'](bam_file)
+        pt.process_peaks(a=inputBed,b=bam_file, out_path = outBed,options = intersectOptions, recompute=recompute)
         # else:
             # print("not executing..")
         return 0
@@ -84,8 +87,52 @@ def intersect_elem(args, reRun, baseDir, elem, bamfiles, intersectOptions, taskt
     return output
 
 
-def elem_postprocessing(args, reRun, baseDir, elem, bg_window, bamfiles):
-    bed_path = f"{baseDir}/{elem['bed-path']}"
+def combine_bed_output(args, elem, bgNameSys, winNameSys, all_chrom):
+    headers = elem['headers']
+
+    elemBaseDir = elem['tmp-dir']
+    numWindows = elem['window']-elem['siteWindow']+1
+
+    bamDirList = [os.path.dirname(f) for f in glob.glob(f"{elemBaseDir}/*" + os.path.sep)]
+    tasklist = [(bamDir,None) for bamDir in bamDirList]
+    tasklist += [(bamDir,n) for n in range(numWindows) for bamDir in bamDirList]
+
+    def combine_files(bamDir,index, recompute=False):
+        if index == None:
+            namesys = lambda appendList:bgNameSys(bamDir, appendList)
+        else:
+            namesys = lambda appendList:winNameSys(bamDir, index, appendList)
+        files_bamDir = glob.glob(namesys(['*']))
+        outputf = namesys([])
+
+        if not recompute and os.path.exists(outputf):
+            return outputf
+
+        #check all chromosomes present
+        for chromAppend in all_chrom:
+            if not namesys([chromAppend]) in files_bamDir:
+                print(files_bamDir,namesys([chromAppend]))
+                raise NameError("all chromosomes not found")
+        if not len(all_chrom)<len(files_bamDir):
+            print(f"ignoring all chromosromes except :{all_chrom}")
+            files_bamDir = [namesys([c]) for c in all_chrom]
+
+
+        pt.combine_intersectBed(files_bamDir, headers, outputf, remove=False)
+        return outputf
+
+
+    args.nTasks = min(args.nTasks,len(tasklist))
+
+    output =  pt.distribute_task(task_list = tasklist, 
+        nTasks = int(args.nTasks), file_index=int(args.file_index), 
+        func= lambda x:combine_files(*x), num_tasks=len(tasklist),
+        dry_run=False)
+    return output
+
+
+def elem_postprocessing(args, reRun, elem, bg_window, bamfiles):
+    bed_path = elem['bed-path']
     headers = elem['headers']
     window = elem['window']
     site_window = elem['siteWindow']
@@ -99,9 +146,9 @@ def elem_postprocessing(args, reRun, baseDir, elem, bg_window, bamfiles):
     out_dim = (elem_bed.shape[0],window-site_window+1)
 
     def post_processing(bam_file):
-        outputf = f"{baseDir}/{out_p(bam_file)}"
+        outputf = out_p(bam_file)
         if reRun or not os.path.exists(outputf):
-            pt.post_process(f"{baseDir}/{bg_inter(bam_file)}", bg_window, headers, lambda X:f"{baseDir}/{intersect_winfiles(bam_file,X)}", out_dim, outputf)
+            pt.post_process(bg_inter(bam_file), bg_window, headers, lambda X:intersect_winfiles(bam_file,X), out_dim, outputf)
         return 0
 
     args.nTasks = min(args.nTasks,len(bamfiles))
@@ -111,6 +158,7 @@ def elem_postprocessing(args, reRun, baseDir, elem, bg_window, bamfiles):
         func= post_processing, num_tasks= len(bamfiles),
         dry_run=False)
     return 0
+
 
 
 if __name__=="__main__":
@@ -123,30 +171,49 @@ if __name__=="__main__":
     args = pt.process_inputArgs(input_parse=sys.argv[1:])
     # args = pt.process_inputArgs(input_parse=['--file_index',0,'--nTasks',52,'--taskType','pWin'])
 
-    assert args.taskType in ["pWin","pIntersect","pPostProcess","eWin","eIntersect","ePostProcess"]
 
-    baseDir = prep.baseDataDir
+    _taskTypes = ["Win","Intersect", "Combine", "PostProcess",'TaskList']
+    taskTypes = [t+_t for t in ['','p','e'] for _t in _taskTypes]
+    assert args.taskType in taskTypes
+
     p = prep.promoter
     e = prep.enhancer
     bgwin = prep.bgWindow
 
+    bamfsInit = prep.bamfilesInit
     bamfs = prep.bamfiles
     interesctOpt = prep.intersectOptions
 
+    all_chrom = [prep.chromAppend(c) for c in prep.all_chrom ]
+    bgNameSys = lambda bamDir, appendList:f"{bamDir}/{prep.NameSys('',prep.nameIntersectBG, appendList,'bed')}"
+    winNameSys = lambda bamDir, index, appendList:f"{bamDir}/{prep.NameSys('',prep.nameIntersectWin, [str(index)]+appendList,'bed')}"
+
     reRun = prep.reRun
 
-    if args.taskType=="pWin":
-        generate_winBed(args, reRun, baseDir, p)
-    elif args.taskType=="pIntersect":
-        intersect_elem(args, reRun, baseDir, p, bamfs, interesctOpt, tasktype='all')
-    elif args.taskType=="pPostProcess":
-        elem_postprocessing(args, reRun, baseDir,  p, bgwin, bamfs)
-    elif args.taskType=="eWin":
-        generate_winBed(args, reRun, baseDir, e)
-    elif args.taskType=="eIntersect":
-        intersect_elem(args, reRun, baseDir, e, bamfs, interesctOpt, tasktype='all')
-    else:#ePostProcess
-        elem_postprocessing(args, reRun, baseDir,  e, bgwin, bamfs)
+    if args.taskType=="pWin" or args.taskType=="Win":
+        generate_winBed(args, reRun, p)
+    if args.taskType=="eWin" or args.taskType=="Win":
+        generate_winBed(args, reRun, e)
+
+    if args.taskType=="TaskList" or  args.taskType=="pTaskList":
+        intersect_tasklist(p, bamfs, tasktype='all', recompute=reRun)
+    if args.taskType=="TaskList" or  args.taskType=="eTaskList":
+        intersect_tasklist(e, bamfs, tasktype='all', recompute=reRun)
+
+    if args.taskType=="pIntersect" or args.taskType=="Intersect":
+        intersect_elem(args, p, bamfs, interesctOpt, tasktype='all', recompute=reRun)
+    if args.taskType=="eIntersect" or args.taskType=="Intersect":
+        intersect_elem(args, e, bamfs, interesctOpt, tasktype='all', recompute=reRun)
+
+    if args.taskType=="pCombine" or args.taskType=="Combine":
+        combine_bed_output(args, p, bgNameSys, winNameSys, all_chrom)
+    if args.taskType=="eCombine" or args.taskType=="Combine":
+        combine_bed_output(args, e, bgNameSys, winNameSys, all_chrom)
+
+    if args.taskType=="pPostProcess" or args.taskType=="PostProcess":
+        elem_postprocessing(args, reRun,  p, bgwin, bamfsInit)
+    if args.taskType=="ePostProcess" or args.taskType=="PostProcess":
+        elem_postprocessing(args, reRun,  e, bgwin, bamfsInit)
 # python process_Dnase.py --nTasks=600  --file_index=$SLURM_ARRAY_TASK_ID
 
 # sbatch -J prWinBed -q batch --ntasks=1 --cpus-per-task=1 --mem=200G --time 70:00:00 -o slurm_dnase_pr.out --array=0-600 run_script.sh

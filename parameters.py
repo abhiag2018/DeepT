@@ -1,5 +1,5 @@
 import colored_traceback.always
-import os, glob
+import os, re, glob
 import pandas as pd
 import preptools as pt
 
@@ -14,7 +14,7 @@ promoter = {'headers': ['chrom', 'txStart', 'txEnd', 'name', 'score', 'strand',
                'exonEnds'],
     'window': 1000,
     'siteWindow': 200,
-    'allfield-bed': "hg19_promoter_allFields.bed"
+    'allfield-bed': f"{baseDataDir}/hg19_promoter_allFields.bed"
 }
 
     
@@ -24,17 +24,17 @@ enhancer = {'headers': ['chrom', 'chromStart', 'chromEnd', 'name', 'score', 'str
            'blockStarts'],
     'window': 2000,
     'siteWindow': 200,
-    'allfield-bed': "enhancers_fantom5/human_permissive_enhancers_phase_1_and_2.bed"
+    'allfield-bed': f"{baseDataDir}/enhancers_fantom5/human_permissive_enhancers_phase_1_and_2.bed"
     }
 
 
 
 ## DNase input parameters
 bamDir = f"{baseDataDir}/Dnase-Seq/cellTypes"
-bamfilesInit = glob.glob(f"{bamDir}/**/*.bam",recursive=True)
+bamfilesInit = [fn for fn in glob.glob(f"{bamDir}/**/*.bam",recursive=True) if re.match("[^.]*\.bam$",fn)]
 intersectOptions="-c -e -f 0.5 -F 0.5"
 
-clearRun = True
+clearRun = False
 reRun = False
 
 

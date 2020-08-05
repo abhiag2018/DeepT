@@ -316,9 +316,13 @@ def replace_suffix(f,ext=".bed"):
         out_path = f"{os.path.dirname(f)}/{basename}{ext}"
     return out_path
 
-def process_peaks(a="hg19_promoter_TSS.bed",b="Dnase-Seq/*.bam",out_path=None,out_suffix="_P.bed",options="",max_try = MAXATTEMPTS):
+def process_peaks(a="hg19_promoter_TSS.bed",b="Dnase-Seq/*.bam",out_path=None,out_suffix="_P.bed",options="",max_try = MAXATTEMPTS, recompute=True):
     for _ in range(max_try):
         try:
+            if not recompute and out_path and os.path.exists(out_path):
+                result=2
+                break
+
             # run algorithm
             if not out_path:
                 out_path = replace_suffix(b,ext=out_suffix)
@@ -370,6 +374,21 @@ def generate_elem_window_bed(elemBed_path, Head, winIdx, site_window, ouputfile)
         print(traceback.print_exc())
         exit_status = 1
     return exit_status
+
+
+def combine_intersectBed(bedfiles, Head, outputf, remove=False):
+    all_headers = Head + ['bamReads']
+
+    X = pd.Series(pd.read_csv(bedfiles[0],delimiter='\t', names=all_headers)['bamReads'])
+    for bedf in itertools.islice(bedfiles,1,None):
+        bedDF = pd.read_csv(bedf,delimiter='\t', names=all_headers)
+        X += bedDF['bamReads']
+    bedDF['bamReads'] = X
+    bedDF.to_csv(outputf,sep='\t',header=False,index=False)
+    if remove:
+        for f in bedfiles:
+            os.remove(f)
+    return outputf
 
 def post_process(bg_intersect_out, bg_win, Head, intersect_out, out_dim, out_path):
     """
