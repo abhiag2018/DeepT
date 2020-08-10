@@ -6,6 +6,9 @@ import pandas as pd
 import numpy as np
 import math
 import preptools as pt
+import functools
+
+
 
 LIMIT = None
 
@@ -60,7 +63,7 @@ def generate_winBed(args, reRun, elem):
     return 0
 
 def intersect_elem(args, elem, bamfiles, intersectOptions, tasktype='all', recompute=True):
-    data = np.load(elem['intersect-tasklist'])
+    data = np.load(elem['intersect-tasklist'],allow_pickle=True)
     elem_tasks = data['tasklist']
     elem_numTasks = data['numTasks']
 
@@ -87,38 +90,43 @@ def intersect_elem(args, elem, bamfiles, intersectOptions, tasktype='all', recom
     return output
 
 
-def combine_bed_output(args, elem, bgNameSys, winNameSys, all_chrom):
-    headers = elem['headers']
+def combineBed_tasks(elem, bgNameSys, winNameSys, all_chrom, recompute=True):
+    namesys = lambda bamDir, index, appendList:winNameSys(bamDir, index, appendList) if index is not None else bgNameSys(bamDir, appendList)
 
     elemBaseDir = elem['tmp-dir']
     numWindows = elem['window']-elem['siteWindow']+1
 
     bamDirList = [os.path.dirname(f) for f in glob.glob(f"{elemBaseDir}/*" + os.path.sep)]
-    tasklist = [(bamDir,None) for bamDir in bamDirList]
-    tasklist += [(bamDir,n) for n in range(numWindows) for bamDir in bamDirList]
+    tasklist = [(bamDir,None) for bamDir in bamDirList  if recompute or not os.path.exists(namesys(bamDir,None,[])) ]
+    tasklist += [(bamDir,n) for n in range(numWindows) for bamDir in bamDirList if recompute or not os.path.exists(namesys(bamDir,n,[])) ]
+
+    #check all chromosomes present
+    for bamDir, index in tasklist:
+        chromExist = [os.path.exists(namesys(bamDir, index, [c])) for c in all_chrom]
+        if not functools.reduce(lambda x, y: x and y, chromExist):
+            print(functools.reduce(lambda x, y: x and y, chromExist),chromExist)
+            raise NameError(f"all chromosomes not found for {bamDir}; index:{index}")
+
+    np.savez(elem['combine-bed-tasklist'],tasklist=tasklist)
+    tasklist = tasklist[:LIMIT] if LIMIT else tasklist
+
+    return tasklist
+
+def combine_bed_output(args, elem, bgNameSys, winNameSys, all_chrom, recompute=True):
+    data = np.load(elem['combine-bed-tasklist'],allow_pickle=True)
+    tasklist = data['tasklist']
+
+    namesys = lambda bamDir, index, appendList:winNameSys(bamDir, index, appendList) if index is not None  else bgNameSys(bamDir, appendList)
+
+    headers = elem['headers']
 
     def combine_files(bamDir,index, recompute=False):
-        if index == None:
-            namesys = lambda appendList:bgNameSys(bamDir, appendList)
-        else:
-            namesys = lambda appendList:winNameSys(bamDir, index, appendList)
-        files_bamDir = glob.glob(namesys(['*']))
-        outputf = namesys([])
-
+        namefunc = lambda X: namesys(bamDir, index, X)
+        combine_input = [namefunc([c]) for c in all_chrom]
+        outputf = namefunc([])
         if not recompute and os.path.exists(outputf):
             return outputf
-
-        #check all chromosomes present
-        for chromAppend in all_chrom:
-            if not namesys([chromAppend]) in files_bamDir:
-                print(files_bamDir,namesys([chromAppend]))
-                raise NameError("all chromosomes not found")
-        if not len(all_chrom)<len(files_bamDir):
-            print(f"ignoring all chromosromes except :{all_chrom}")
-            files_bamDir = [namesys([c]) for c in all_chrom]
-
-
-        pt.combine_intersectBed(files_bamDir, headers, outputf, remove=False)
+        pt.combine_intersectBed(combine_input, headers, outputf, remove=False)
         return outputf
 
 
@@ -126,7 +134,7 @@ def combine_bed_output(args, elem, bgNameSys, winNameSys, all_chrom):
 
     output =  pt.distribute_task(task_list = tasklist, 
         nTasks = int(args.nTasks), file_index=int(args.file_index), 
-        func= lambda x:combine_files(*x), num_tasks=len(tasklist),
+        func= lambda x:combine_files(*x, recompute=recompute), num_tasks=len(tasklist),
         dry_run=False)
     return output
 
@@ -169,10 +177,10 @@ if __name__=="__main__":
     import preprocessing as prep
 
     args = pt.process_inputArgs(input_parse=sys.argv[1:])
-    # args = pt.process_inputArgs(input_parse=['--file_index',0,'--nTasks',52,'--taskType','pWin'])
+    # args = pt.process_inputArgs(input_parse=['--file_index','0','--nTasks','52','--taskType','pWin'])
 
 
-    _taskTypes = ["Win","Intersect", "Combine", "PostProcess",'TaskList']
+    _taskTypes = ["Win",'TaskList',"Intersect",'cTaskList', "Combine", "PostProcess"]
     taskTypes = [t+_t for t in ['','p','e'] for _t in _taskTypes]
     assert args.taskType in taskTypes
 
@@ -205,10 +213,15 @@ if __name__=="__main__":
     if args.taskType=="eIntersect" or args.taskType=="Intersect":
         intersect_elem(args, e, bamfs, interesctOpt, tasktype='all', recompute=reRun)
 
+    if args.taskType=="cTaskList" or  args.taskType=="pcTaskList":
+        combineBed_tasks(p, bgNameSys, winNameSys, all_chrom, recompute=reRun)
+    if args.taskType=="cTaskList" or  args.taskType=="ecTaskList":
+        combineBed_tasks(e, bgNameSys, winNameSys, all_chrom, recompute=reRun)
+
     if args.taskType=="pCombine" or args.taskType=="Combine":
-        combine_bed_output(args, p, bgNameSys, winNameSys, all_chrom)
+        combine_bed_output(args, p, bgNameSys, winNameSys, all_chrom, recompute=reRun)
     if args.taskType=="eCombine" or args.taskType=="Combine":
-        combine_bed_output(args, e, bgNameSys, winNameSys, all_chrom)
+        combine_bed_output(args, e, bgNameSys, winNameSys, all_chrom, recompute=reRun)
 
     if args.taskType=="pPostProcess" or args.taskType=="PostProcess":
         elem_postprocessing(args, reRun,  p, bgwin, bamfsInit)

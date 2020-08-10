@@ -17,22 +17,25 @@ def makedirs(dirpath,exist_ok = False):
 baseBaseName = lambda f: f.split("/")[-1].split(".")[0]
 midBaseName = lambda f: f.split("/")[-1].split(".")[1:-1]
 
-NameSys = lambda bam_file,name,append,ext: f"""{baseBaseName(bam_file) if bam_file else "."}/{name}{"."+".".join(append) if append else ""}.{ext}"""
 
+NameSys = lambda bam_file,name,append,ext: f"""{baseBaseName(bam_file) if bam_file else "."}/{name}{"."+".".join(append) if append else ""}.{ext}"""
 
 nameWinBed = 'win'
 nameIntersectBG = 'intersect_BG'
 nameIntersectWin = 'intersect_win'
 nameDnaseOut = 'DNase'
+nameDNAout = 'DNA_Seq'
 
 tmpBaseDir = "/fastscratch/agarwa/DeepTact_tmp"
+
 
 ## promoter parameters
 promoter['bed-path']=  f"{baseDataDir}/hg19_promoter_TSS.bed"
 promoter['bg-path']= f"{baseDataDir}/hg19_promoter_BG.bed"
-promoter['tmp-dir']= f"{tmpBaseDir}/tmp_promoter"
+promoter['tmp-dir']= f"{tmpBaseDir}/tmp_promoter.1"
 
 promoter['intersect-tasklist'] = f"{promoter['tmp-dir']}/prTaskList.npz"
+promoter['combine-bed-tasklist'] = f"{promoter['tmp-dir']}/prCombineBedTasklist.npz"
 
 promoter['winBed-path']=  lambda X:f"""{promoter['tmp-dir']}/{NameSys('',nameWinBed,[str(X)],'bed')}"""
 promoter['bg-intersect-out'] =  lambda bam_file: f"""{promoter['tmp-dir']}/{NameSys(bam_file,nameIntersectBG,midBaseName(bam_file),"bed")}"""
@@ -40,13 +43,15 @@ promoter['intersect-out']=  lambda bam_file,X:f"""{promoter['tmp-dir']}/{NameSys
 promoter['dnase-out']=  lambda bam_file:f"""{promoter['tmp-dir']}/{NameSys(bam_file,nameDnaseOut,[],"npz")}"""
 
 promoter['fa-out']=f"{baseDataDir}/promoter.fa"
+promoter['dna-out'] = f"{promoter['tmp-dir']}/{nameDNAout}.npz"
 
 ## enhancer parameters
 enhancer['bed-path']= f"{baseDataDir}/enhancers_fantom5/human_enhancers_window.bed"
 enhancer['bg-path']= f"{baseDataDir}/hg19_enhancer_BG.bed"
-enhancer['tmp-dir']= f"{tmpBaseDir}/tmp_enhancer"
+enhancer['tmp-dir']= f"{tmpBaseDir}/tmp_enhancer.1"
 
 enhancer['intersect-tasklist'] = f"{enhancer['tmp-dir']}/enhTaskList.npz"
+enhancer['combine-bed-tasklist'] = f"{enhancer['tmp-dir']}/prCombineBedTasklist.npz"
 
 enhancer['winBed-path']=  lambda X:f"""{enhancer['tmp-dir']}/{NameSys('',nameWinBed,[str(X)],'bed')}"""
 enhancer['bg-intersect-out'] =  lambda bam_file: f"""{enhancer['tmp-dir']}/{NameSys(bam_file,nameIntersectBG,midBaseName(bam_file),"bed")}"""
@@ -54,6 +59,7 @@ enhancer['intersect-out']=  lambda bam_file,X:f"""{enhancer['tmp-dir']}/{NameSys
 enhancer['dnase-out']=  lambda bam_file:f"""{enhancer['tmp-dir']}/{NameSys(bam_file,nameDnaseOut,[],"npz")}"""
 
 enhancer['fa-out']=f"{baseDataDir}/enhancer.fa"
+enhancer['dna-out'] = f"{enhancer['tmp-dir']}/{nameDNAout}.npz"
 
 
 ## DNase Input
