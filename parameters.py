@@ -3,10 +3,12 @@ import os, re, glob
 import pandas as pd
 import preptools as pt
 
+LIMIT = 1
+
 baseDataDir = "/projects/li-lab/agarwa/CUBE/DeepTact/dataset"
 bgWindow = int(1e6)
 
-hg19 = "hg19.fa"
+hg19 = f"{baseDataDir}/hg19.fa"
 
 ## promoter parameters
 promoter = {'headers': ['chrom', 'txStart', 'txEnd', 'name', 'score', 'strand',
@@ -31,10 +33,10 @@ enhancer = {'headers': ['chrom', 'chromStart', 'chromEnd', 'name', 'score', 'str
 
 ## DNase input parameters
 bamDir = f"{baseDataDir}/Dnase-Seq/cellTypes"
-bamfilesInit = [fn for fn in glob.glob(f"{bamDir}/**/*.bam",recursive=True) if re.match("[^.]*\.bam$",fn)]
+bamfilesInit = [fn for fn in glob.glob(f"{bamDir}/**/*.bam",recursive=True) if re.match("[^.]*\.bam$",fn)][:LIMIT]
 intersectOptions="-c -e -f 0.5 -F 0.5"
 
-clearRun = False
+clearRun = True
 reRun = False
 
 

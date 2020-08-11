@@ -59,7 +59,7 @@ def fasta_seq_length(fastaf):
                 break
     return window
 
-def fasta_to_onehot(fastaf,maxlines=None):
+def fasta_to_onehot(fastaf,maxlines=None,outp=None):
     maxread = None
     if maxlines:
         numlines = maxlines
@@ -92,6 +92,8 @@ def fasta_to_onehot(fastaf,maxlines=None):
                 _seq = np.array(list(seq)).reshape(len(seq),1)
                 pr_onehot[num_prom-1] = enc.transform(_seq).toarray()
                 pr_seq[num_prom-1] = seq
+    if outp:
+        np.savez(outp,expr=pr_onehot)
     return pr_name,pr_loc,pr_seq,pr_onehot
 
 def prep_fasta(chrom=list(range(1,23))+list('XY'),path_lambda=lambda x:f"{x}.fa"):
@@ -120,11 +122,11 @@ def concat_fasta(fasta_path_fn=lambda x:f"{x}.fa",re_process=True):
 
 def generate_elem_fa(hg19_fa,elem_bed,out_fa="out.fa",dry_run=False):
     cmd = f"bedtools getfasta -fi {hg19_fa} -bed {elem_bed} -name -fo {out_fa}"
-    print("executing :bedtools.. ", end="")
+    print("executing :bedtools", end="..",flush=True)
     if not dry_run:
-        result = subprocess.check_output(cmd, shell=True,stderr=subprocess.STDOUT)
-    else:
-        result = 1
+        result = os.system(cmd)
+        # result = subprocess.check_output(cmd, shell=True,stderr=subprocess.STDOUT)
+    print(".",flush=True)
     # print(f"fasta saved to :{out_fa} ")
     return numbacountparallel(out_fa)
 
@@ -378,12 +380,21 @@ def generate_elem_window_bed(elemBed_path, Head, winIdx, site_window, ouputfile)
 
 def combine_intersectBed(bedfiles, Head, outputf, remove=False):
     all_headers = Head + ['bamReads']
+    try:
+        X = pd.Series(pd.read_csv(bedfiles[0],delimiter='\t', names=all_headers)['bamReads'])
+        # X[X == '+']=0
+        X = X.apply(int)
 
-    X = pd.Series(pd.read_csv(bedfiles[0],delimiter='\t', names=all_headers)['bamReads'])
-    for bedf in itertools.islice(bedfiles,1,None):
-        bedDF = pd.read_csv(bedf,delimiter='\t', names=all_headers)
-        X += bedDF['bamReads']
-    bedDF['bamReads'] = X
+        for bedf in itertools.islice(bedfiles,1,None):
+            bedDF = pd.read_csv(bedf,delimiter='\t', names=all_headers)
+            tmpX =  pd.Series(bedDF['bamReads'])
+            # tmpX[tmpX == '+']=0
+            tmpX = tmpX.apply(int)
+            X += tmpX
+        bedDF['bamReads'] = X
+    except Exception as e:
+        print(bedf)
+        raise Exception(bedf)
     bedDF.to_csv(outputf,sep='\t',header=False,index=False)
     if remove:
         for f in bedfiles:
