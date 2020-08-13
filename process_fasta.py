@@ -6,6 +6,10 @@ if __name__=="__main__":
     import preprocessing as prep
     args = pt.process_inputArgs(input_parse=sys.argv[1:])
 
+    _taskTypes = ["DNA"]
+    taskTypes = [t+_t for t in ['','p','e'] for _t in _taskTypes]
+    assert args.taskType in taskTypes
+
     hg19 = prep.hg19
     p = prep.promoter
     e = prep.enhancer
