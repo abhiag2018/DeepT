@@ -30,7 +30,7 @@ options=("${optionsPrep[@]}" "${optionsProc[@]}" "${optionsDNA[@]}")
 
 helpFunction()
 {
-	echo -e """usage: run_script.sh <TaskType> \n\t\tin ${options[@]} \n\n"""
+	echo -e """usage: scriptDT.sh <TaskType> \n\t\tin ${options[@]} \n\n"""
 	exit 0
 }
 
@@ -72,38 +72,30 @@ else
 fi
 
 
-# sbatch -J prepPr run_script.sh prepPr
-# sbatch -J prepEnh run_script.sh prepEnh
-# # sbatch -J splitBam -a 0-300 run_script.sh splitBam
-# sbatch -J pWin -a 0-300 run_script.sh pWin
-# sbatch -J eWin -a 0-300 run_script.sh eWin
+# sbatch -J prepPr scriptDT.sh prepPr
+# sbatch -J prepEnh scriptDT.sh prepEnh
+# # sbatch -J splitBam -a 0-300 scriptDT.sh splitBam
+# sbatch -J pWin -a 0-300 scriptDT.sh pWin
+# sbatch -J eWin -a 0-300 scriptDT.sh eWin
 
-# sbatch -J pTaskList run_script.sh pTaskList
-# sbatch -J eTaskList run_script.sh eTaskList
-# sbatch -J pIntersect -a 0-300 run_script.sh pIntersect
-# sbatch -J eIntersect -a 0-300 run_script.sh eIntersect
+# sbatch -J pTaskList scriptDT.sh pTaskList
+# sbatch -J eTaskList scriptDT.sh eTaskList
+# sbatch -J pIntersect -a 0-300 scriptDT.sh pIntersect
+# sbatch -J eIntersect -a 0-300 scriptDT.sh eIntersect
 
-# sbatch -J pcTaskList run_script.sh pcTaskList
-# sbatch -J ecTaskList run_script.sh ecTaskList
+# sbatch -J pcTaskList scriptDT.sh pcTaskList
+# sbatch -J ecTaskList scriptDT.sh ecTaskList
 
-# sbatch -J pCombine -a 0-300 run_script.sh pCombine
-# sbatch -J eCombine -a 0-300 run_script.sh eCombine
-# sbatch -J pPostProcess -a 0-30 run_script.sh pPostProcess
-# sbatch -J ePostProcess -a 0-30 run_script.sh ePostProcess
-
-# sbatch -J pDNA run_script.sh pDNA
-# sbatch -J eDNA run_script.sh eDNA
+# sbatch -J pCombine -a 0-300 scriptDT.sh pCombine
+# sbatch -J eCombine -a 0-300 scriptDT.sh eCombine
+# sbatch -J pPostProcess -a 0-30 scriptDT.sh pPostProcess
+# sbatch -J ePostProcess -a 0-30 scriptDT.sh ePostProcess
 
 
+###
 
-
-
-
-
-
-
-
-
+# sbatch -J pDNA scriptDT.sh pDNA
+# sbatch -J eDNA scriptDT.sh eDNA
 
 
 
