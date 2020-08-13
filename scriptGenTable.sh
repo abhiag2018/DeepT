@@ -51,8 +51,8 @@ conda activate cube
 
 
 if [[ ${options[@]} == *$option* ]]; then
-	echo  "run HiC.py"
-	python HiC.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID	
+	echo  "run GenTable.py"
+	python GenTable.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID	
 fi
 
 # sbatch -J HiC -a 0-300 run_script.sh HiC
