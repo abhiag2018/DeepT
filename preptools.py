@@ -14,7 +14,8 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import OneHotEncoder
 from numba import jit, prange   
 import copy
-# import pybedtools
+import mygene
+
 
 MAXATTEMPTS = 3
 
@@ -96,7 +97,7 @@ def fasta_to_onehot(fastaf,maxlines=None,outp=None):
         assert pr_onehot.shape[1]==1000 or pr_onehot.shape[1]==2000
         assert pr_onehot.shape[2]==4
 
-        np.savez(outp,sequence=pr_onehot.reshape(pr_onehot.shape[0],pr_onehot.shape[1]*pr_onehot.shape[2]))
+        np.savez(outp,sequence=pr_onehot.reshape(pr_onehot.shape[0],pr_onehot.shape[1]*pr_onehot.shape[2]),name=pr_name,loc=pr_loc)
     return pr_name,pr_loc,pr_seq,pr_onehot
 
 def prep_fasta(chrom=list(range(1,23))+list('XY'),path_lambda=lambda x:f"{x}.fa"):
@@ -175,115 +176,135 @@ def process_enhancer_bed(enh_allfield,out_path,headers,window=2000):
     enh.to_csv(out_path,sep='\t',header=False,index=False)
     return out_path
 
-
-# def generate_promoter_dna(base_dir, hg19_fa=None, tss_bed = None, out_fa = "promoterTSS_dna.fa", dryRun=False):
-#     # base_dir = "/projects/li-lab/agarwa/CUBE/DeepTact/dataset"
-
-#     # input to bedtools : construct combined genome seqeunce file for all chromosomes;
-#     if not hg19_fa:
-#         dna_seq = lambda x:f"{base_dir}/genome_seq/Homo_sapiens.GRCh37.75.dna.chromosome.{x}.fa"
-#         hg19_fa_abs = concat_fasta(fasta_path_fn=dna_seq,re_process=False)
-#         hg19_fa = os.path.relpath(hg19_fa_abs, base_dir)
-
-#     # input to bedtools : construct bed file for promoters
-#     if not tss_bed:
-#         raise NameError("run `import preprocessing` for promoter_preprocessing")
-
-#     return generate_elem_fa(f"{base_dir}/{hg19_fa}",f"{base_dir}/{tss_bed}",out_fa=f"{base_dir}/{out_fa}",dry_run=dryRun)
-
-
-
-# def generate_enhancer_dna(base_dir, hg19_fa=None, enhWin_bed = None, out_fa = "enhancer_dna.fa", dryRun=False, options = {}):
-#     # base_dir = "/projects/li-lab/agarwa/CUBE/DeepTact/dataset"
-#     dna_seq = lambda x:f"genome_seq/Homo_sapiens.GRCh37.75.dna.chromosome.{x}.fa"
-#     combined_fasta = dna_seq('chr1-22XY')
-
-#     # input to bedtools : construct combined genome seqeunce file for all chromosomes;
-#     if not hg19_fa:
-#         dna_seq = lambda x:f"{base_dir}/genome_seq/Homo_sapiens.GRCh37.75.dna.chromosome.{x}.fa"
-#         hg19_fa_abs = concat_fasta(fasta_path_fn=dna_seq,re_process=False)
-#         hg19_fa = os.path.relpath(hg19_fa_abs, base_dir)
-
-
-#     # input to bedtools : construct bed file for promoters
-#     if not enhWin_bed:
-#         raise NameError("run `import parameters` for enhancer_preprocessing")
-
-#     return generate_elem_fa(f"{base_dir}/{hg19_fa}",f"{base_dir}/{enhWin_bed}",out_fa=f"{base_dir}/{out_fa}",dry_run=dryRun)
-
-
-
-def concat_PCHiC_PE(base_dataDir,EP_dataPath,selectCell='MK',threshold = 5):
-    EP_dataPath_abs = f"{base_dataDir}/{EP_dataPath}"
-    promoter_seq = f"{base_dataDir}/promoterTSS_dna.fa"
-    enhancer_seq = f"{base_dataDir}/enhancer_dna.fa"
-    _,enhLoc,_,_ = fasta_to_onehot(f"{base_dataDir}/promoterTSS_dna.fa")
-    _,prLoc,_,_ = fasta_to_onehot(enhancer_seq)
-
+def concat_PCHiC_PE(hicTSV,promoter_dna,enhancer_dna,selectCell='MK',threshold = 5, outputF=None, sampleFrac=None):
+    """
+    input : PCHiC tsv file, promoter .fa file, enhancer .fa file
+    output : csv file with columns, baitPr, baitEnh, oePr, and oeEnh. 
+        Corresponding to promoters and enhancers mid site intersecting with the bait and oe regions
+    """
     def extractElem(elems):
+        """for each element (promoters or enhancers) extract the chromosome info, start bp index, end bp index, and mid bp index"""
         Chr = [re.match('chr([0-9XY])+:([0-9]+)-([0-9]+)',pr).group(1) for pr in elems]
         Start = [int(re.match('chr([0-9XY])+:([0-9]+)-([0-9]+)',pr).group(2)) for pr in elems]
         End = [int(re.match('chr([0-9XY])+:([0-9]+)-([0-9]+)',pr).group(3)) for pr in elems]
         Mid = [(x+y)//2 for x,y in zip(Start,End)]
         return Chr, Start, End, Mid
-    prChr, prStart, prEnd, prTSS =  extractElem(prLoc)
-    enhChr, enhStart, enhEnd, enhMid =  extractElem(enhLoc)
 
-    EP_pos_train = pd.read_csv(EP_dataPath_abs,delimiter="\t")
-    EP_pos_train = EP_pos_train[EP_pos_train[selectCell]>=threshold]
-    # EP_pos_train = EP_pos_train[EP_pos_train.apply(lambda df:selectCell in set(df['cellType(s)'].split(',')),axis=1)]
-    EP_pos_train['baitPr'] = [np.empty(0,dtype=float)]*len(EP_pos_train)
-    EP_pos_train['baitEnh'] = [np.empty(0,dtype=float)]*len(EP_pos_train)
-    EP_pos_train['oePr'] = [np.empty(0,dtype=float)]*len(EP_pos_train)
-    EP_pos_train['oeEnh'] = [np.empty(0,dtype=float)]*len(EP_pos_train)
+    prData = np.load(promoter_dna,allow_pickle=True)
+    prName, prLoc = prData['name'], prData['loc']
+    prChr, _, _, prMid = extractElem(prLoc)
+    prDF = pd.DataFrame({'chr':prChr,'mid':prMid,'loc':prLoc, 'name':prName})
 
-    def addElem(interDF,elemChr,elemMid,elemLoc,pr_enh = 'Pr',loci_type='bait'):
+    enhData = np.load(enhancer_dna,allow_pickle=True)
+    enhName, enhLoc = enhData['name'], enhData['loc']
+    enhChr, _, _, enhMid = extractElem(enhLoc)
+    enhDF = pd.DataFrame({'chr':enhChr,'mid':enhMid,'loc':enhLoc, 'name':enhName})
+
+    pchicDF = pd.read_csv(hicTSV,delimiter="\t")
+    pchicDF = pchicDF[pchicDF[selectCell]>=threshold]
+    if sampleFrac:
+        pchicDF = pchicDF.sample(frac=sampleFrac, axis=0)
+
+
+    # pchicDF = pchicDF[pchicDF.apply(lambda df:selectCell in set(df['cellType(s)'].split(',')),axis=1)]
+    pchicDF['baitPr'] = [np.empty(0,dtype=float)]*len(pchicDF)
+    pchicDF['baitEnh'] = [np.empty(0,dtype=float)]*len(pchicDF)
+    pchicDF['oePr'] = [np.empty(0,dtype=float)]*len(pchicDF)
+    pchicDF['oeEnh'] = [np.empty(0,dtype=float)]*len(pchicDF)
+    pchicDF = pchicDF.astype({'baitChr':str}) 
+    pchicDF = pchicDF.astype({'oeChr':str}) 
+
+    def addElem(interDF, elemDF, pr_enh = 'Pr',loci_type='bait'):
+        """
+        append column (loci_type+pr_enh) to dataframe (interDF)
+        """
         assert pr_enh in ['Pr','Enh']
         col_name = loci_type+pr_enh
-        df = pd.DataFrame({'chr':elemChr,'mid':elemMid,'loc':elemLoc})
 
-        elem_chr = df.groupby(['chr'])[['mid','loc']].apply(lambda g: sorted(g.values.tolist(), key = lambda t: t[0])).to_dict()
-        
+
+        # dictionary of (mid index, location) for array of elements ; dictionary keys = chromosomes; 
+        # the arrays for each chromosome are sorted by mid
+        elem_chr = elemDF.groupby(['chr'])[['mid','loc','name']].apply(lambda g: sorted(g.values.tolist(), key = lambda t: t[0])).to_dict()
+
         Start = loci_type+'Start'
         End = loci_type+'End'
         chrom = loci_type+'Chr'
         def appendElems(St,En,elemList):
+            """
+            returns all elements in elemList lying between St and En 
+            i.e. element x in output array IFF St<=x<En
+            """
             _elemList = np.array(elemList)[:,0].astype(np.int32)
             stIdx = bisect.bisect_left(_elemList,St)
             enIdx = bisect.bisect_left(_elemList,En)
             return elemList[stIdx:enIdx]
         def applyFunc(df):
-            if df[chrom+'idx'] in elem_chr.keys():
-                return appendElems(df[Start],df[End],elem_chr[df[chrom+'idx']])
+            if df[chrom] in elem_chr.keys():
+                return appendElems(df[Start],df[End],elem_chr[df[chrom]])
             return []
         # import pdb
         # pdb.set_trace()
-        interDF[chrom+'idx'] = interDF[chrom].str.strip().str[-1]
+        # interDF[chrom+'idx'] = interDF[chrom].str.strip().str[-1]
         interDF[col_name] = interDF.apply(applyFunc,axis=1)
 
-    addElem(EP_pos_train,prChr,prTSS,prLoc,'Pr',loci_type='bait')
-    addElem(EP_pos_train,enhChr,enhMid,enhLoc,'Enh',loci_type='bait')
-    addElem(EP_pos_train,prChr,prTSS,prLoc,'Pr',loci_type='oe')
-    addElem(EP_pos_train,enhChr,enhMid,enhLoc,'Enh',loci_type='oe')
 
-    return EP_pos_train
+    addElem(pchicDF,prDF,'Pr',loci_type='bait')
+    addElem(pchicDF,enhDF,'Enh',loci_type='bait')
+    addElem(pchicDF,prDF,'Pr',loci_type='oe')
+    addElem(pchicDF,enhDF,'Enh',loci_type='oe')
+
+    if outputF:
+        pchicDF.to_csv(outputF,index=False)
+        # pd.read_csv(outputF)
+    return pchicDF
 
 
-def training_PE(base_dataDir,EP_dataPath,selectCell=None,threshold = 5,intTypeList=None,output_name='PCHiC'):
+def GroupGeneSymbol(mg,elemTransript):
+    """
+    input : list of Transcript Symbols for promoters
+    output : list of tuples of (gene symbols, transcripts). 
+        Such that all transcripts in a tuple have the same (unique or multiple) gene symbols.
+        Multiple gene symbols for transcripts arise since many input query terms (i.e. transcripts) have multiple gene symbol hits.
+    """
+    # mg = mygene.MyGeneInfo()
+    def geneQuery(TranscriptArr):
+        GeneSymbol = mg.querymany(TranscriptArr, scopes='ensembl.transcript',species="human",as_dataframe=True).reset_index()
+        if 'symbol' not in GeneSymbol.columns:
+            GeneSymbol['symbol'] = pd.Series(dtype=str)
+        return GeneSymbol.loc[:,['query','symbol']].copy()
 
-    df = concat_PCHiC_PE(base_dataDir,EP_dataPath,selectCell=selectCell)
-    baitPr = df.apply(lambda df:len(df['baitPr']),axis=1)
-    baitEnh = df.apply(lambda df:len(df['baitEnh']),axis=1)
-    oeEnh = df.apply(lambda df:len(df['oeEnh']),axis=1)
-    oePr = df.apply(lambda df:len(df['oePr']),axis=1)
-    for intType in intTypeList:
-        assert intType in ['PE','PP']
-        if intType == 'PE':
-            EP_df =  df[((baitPr==0) & (baitEnh==1) & (oePr==1) & (oeEnh==0)) | ((baitPr==1) & (baitEnh==0) & (oePr==0) & (oeEnh==1)) ]
-        else:
-            EP_df =  df[((baitPr==1) & (baitEnh==0) & (oePr==1) & (oeEnh==0))]
-        EP_df.to_csv(f"{base_dataDir}/{output_name}_{intType}_{selectCell}.csv",index=False)
-    return
+    # get symbols from biomArt package
+    gs = geneQuery(elemTransript)
+
+    # combine common geneSymbols and Transcripts with multiple geneSymbols
+    gs['level'] = list(range(gs.shape[0]))
+    gs['symbol'] = gs['symbol'].fillna(-1)
+    gs['level'] = gs.groupby('symbol',sort=False)['level'].transform(lambda x:[min(x)]*len(x))
+    gs['level'] = gs.groupby('query',sort=False)['level'].transform(lambda x:[min(x)]*len(x))
+
+    # classify and extract groups
+    grouped = gs.groupby('level',sort=False)
+    s1 = grouped['query'].agg(lambda x:list(np.unique(x)))
+    s2 = grouped['symbol'].agg(lambda x:list(np.unique(x)))
+
+    # print(elemTransript,"\n\n")
+    return list(zip(s2,s1))
+
+# def training_PE(base_dataDir,EP_dataPath,selectCell=None,threshold = 5,intTypeList=None,output_name='PCHiC'):
+
+#     df = concat_PCHiC_PE(base_dataDir,EP_dataPath,selectCell=selectCell)
+#     baitPr = df.apply(lambda df:len(eval(df['baitPr'])),axis=1)
+#     baitEnh = df.apply(lambda df:len(eval(df['baitEnh'])),axis=1)
+#     oeEnh = df.apply(lambda df:len(eval(df['oeEnh'])),axis=1)
+#     oePr = df.apply(lambda df:len(eval(df['oePr'])),axis=1)
+#     for intType in intTypeList:
+#         assert intType in ['PE','PP']
+#         if intType == 'PE':
+#             EP_df =  df[((baitPr==0) & (baitEnh==1) & (oePr==1) & (oeEnh==0)) | ((baitPr==1) & (baitEnh==0) & (oePr==0) & (oeEnh==1)) ]
+#         else:
+#             EP_df =  df[((baitPr==1) & (baitEnh==0) & (oePr==1) & (oeEnh==0))]
+#         EP_df.to_csv(f"{base_dataDir}/{output_name}_{intType}_{selectCell}.csv",index=False)
+#     return
 
 def decompress_dir_recursive(glob_expr):
     for file in glob.glob(glob_expr):
