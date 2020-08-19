@@ -6,6 +6,7 @@ import preptools as pt
 LIMIT = 1
 
 baseDataDir = "/projects/li-lab/agarwa/CUBE/DeepTact/dataset"
+codeTmpDir = "/projects/li-lab/agarwa/CUBE/DeepTact/code/tmp_data"
 bgWindow = int(1e6)
 
 hg19 = f"{baseDataDir}/hg19.fa"
@@ -41,4 +42,7 @@ reRun = False
 
 
 
+## PCHiC Training Data
 
+hicTSV = f"{baseDataDir}/Javierre_ref_18/DATA_S1/PCHiC_peak_matrix_cutoff5.tsv"
+hicTSV_test = f"{baseDataDir}/Javierre_ref_18/DATA_S1/test.tsv"
