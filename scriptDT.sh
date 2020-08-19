@@ -23,7 +23,9 @@ done
 
 optionsDNA=('DNA' 'pDNA' 'eDNA')
 
-options=("${optionsPrep[@]}" "${optionsProc[@]}" "${optionsDNA[@]}")
+optionsPCHiC=('Convert')
+
+options=("${optionsPrep[@]}" "${optionsProc[@]}" "${optionsDNA[@]}" "${optionsPCHiC[@]}")
 # echo ${options[@]}
 # echo ${#options[@]}
 
@@ -66,6 +68,9 @@ if [[ ${optionsPrep[@]} == *$option* ]]; then
 elif [[ ${optionsDNA[@]} == *$option* ]]; then
 	echo  "run process_fasta.py"
 	python process_fasta.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID	
+elif [[ ${optionsPCHiC[@]} == *$option* ]]; then
+	echo  "run process_PCHiC.py"
+	python process_PCHiC.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID	
 else
 	echo  "run process_Dnase.py"
 	python process_Dnase.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID
@@ -96,6 +101,13 @@ fi
 
 # sbatch -J pDNA scriptDT.sh pDNA
 # sbatch -J eDNA scriptDT.sh eDNA
+
+
+
+###
+
+# sbatch -J Convert scriptDT.sh Convert
+
 
 
 
