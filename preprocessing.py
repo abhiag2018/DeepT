@@ -3,7 +3,7 @@ import os, glob, shutil, sys, itertools
 import pandas as pd
 import preptools as pt
 import argparse, itertools
-from parameters import baseDataDir, bgWindow, promoter, enhancer, bamfilesInit, bamDir, intersectOptions, clearRun, reRun, hg19
+from parameters import baseDataDir, codeTmpDir, bgWindow, promoter, enhancer, bamfilesInit, bamDir, intersectOptions, clearRun, reRun, hg19, hicTSV
 
 
 def makedirs(dirpath,exist_ok = False):
@@ -64,10 +64,14 @@ enhancer['dna-out'] = f"{enhancer['tmp-dir']}/{nameDNAout}.npz"
 
 ## DNase Input
 
-
 all_chrom = list(range(1,23))+list('XY')
 chromAppend = lambda chrom:f"REF_chr{chrom}" # default for bamtools split
 bamfiles = list(itertools.chain.from_iterable(glob.glob(f"""{os.path.dirname(bamf)}/*.{chromAppend('*')}.bam""") for bamf in bamfilesInit))
+
+
+## Hi-C Input
+HiCIntersections = lambda cell:f"{tmpBaseDir}/PCHiC_{cell}.csv"
+
 
 def elem_preprocessing(elem, bg_window, func):
     """ element pre-processing"""
@@ -116,13 +120,13 @@ if __name__=="__main__":
         makedirs(promoter['tmp-dir'],exist_ok=not clean_run)
         for bam_file in bamfilesInit:
             makedirs(os.path.dirname(promoter['bg-intersect-out'](bam_file)),exist_ok=not clean_run)
-        # elem_preprocessing(promoter, bgWindow, pt.process_promoter_bed)
+        elem_preprocessing(promoter, bgWindow, pt.process_promoter_bed)
 
     if args.taskType=="prep" or args.taskType=="prepEnh":
         makedirs(enhancer['tmp-dir'],exist_ok=not clean_run)
         for bam_file in bamfilesInit:
             makedirs(os.path.dirname(enhancer['bg-intersect-out'](bam_file)),exist_ok=not clean_run)
-        # elem_preprocessing(enhancer, bgWindow, pt.process_enhancer_bed)
+        elem_preprocessing(enhancer, bgWindow, pt.process_enhancer_bed)
 
 
 
