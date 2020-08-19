@@ -172,7 +172,7 @@ def elem_postprocessing(args, reRun, elem, bg_window, bamfiles):
 if __name__=="__main__":
     """
     outputs openness score computed from DNase-Seq data for elements.
-    The data is sorted according to ['chrom','name']
+    The data is sorted according to ['chrom','name'] in pt.post_process
     """
     import preprocessing as prep
 
