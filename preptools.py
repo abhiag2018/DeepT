@@ -182,6 +182,7 @@ def concat_PCHiC_PE(hicTSV,promoter_dna,enhancer_dna,selectCell='MK',threshold =
     output : csv file with columns, baitPr, baitEnh, oePr, and oeEnh. 
         Corresponding to promoters and enhancers mid site intersecting with the bait and oe regions
     """
+
     def extractElem(elems):
         """for each element (promoters or enhancers) extract the chromosome info, start bp index, end bp index, and mid bp index"""
         Chr = [re.match('chr([0-9XY])+:([0-9]+)-([0-9]+)',pr).group(1) for pr in elems]
@@ -190,68 +191,48 @@ def concat_PCHiC_PE(hicTSV,promoter_dna,enhancer_dna,selectCell='MK',threshold =
         Mid = [(x+y)//2 for x,y in zip(Start,End)]
         return Chr, Start, End, Mid
 
-    prData = np.load(promoter_dna,allow_pickle=True)
-    prName, prLoc = prData['name'], prData['loc']
-    prChr, _, _, prMid = extractElem(prLoc)
-    prDF = pd.DataFrame({'chr':prChr,'mid':prMid,'loc':prLoc, 'name':prName})
+    def getChrDict(dna_out_file):
+        """
+        convert elements list into a dictionary keyed by chromosome; containing the (mid site, name ) tuple lists
+        """
+        elemData = np.load(dna_out_file,allow_pickle=True)
+        elemChr, _, _, elemMid = extractElem(elemData['loc'])
+        elemDF = pd.DataFrame({'chr':elemChr,'mid':elemMid, 'name':elemData['name']})
+        # dictionary of (mid index, name) for array of elements ; dictionary keys = chromosomes; 
+        # the arrays for each chromosome are sorted by mid
+        return elemDF.groupby(['chr'])[['mid','name']].apply(lambda g: sorted(g.values.tolist(), key = lambda t: t[0])).to_dict()
 
-    enhData = np.load(enhancer_dna,allow_pickle=True)
-    enhName, enhLoc = enhData['name'], enhData['loc']
-    enhChr, _, _, enhMid = extractElem(enhLoc)
-    enhDF = pd.DataFrame({'chr':enhChr,'mid':enhMid,'loc':enhLoc, 'name':enhName})
+    prChrDict =  getChrDict(promoter_dna)
+    enhChrDict = getChrDict(enhancer_dna)
 
-    pchicDF = pd.read_csv(hicTSV,delimiter="\t")
+    pchicDF = pd.read_csv(hicTSV,delimiter="\t",dtype={'baitChr':str,'oeChr':str})
     pchicDF = pchicDF[pchicDF[selectCell]>=threshold]
     if sampleFrac:
         pchicDF = pchicDF.sample(frac=sampleFrac, axis=0)
 
-
-    # pchicDF = pchicDF[pchicDF.apply(lambda df:selectCell in set(df['cellType(s)'].split(',')),axis=1)]
-    pchicDF['baitPr'] = [np.empty(0,dtype=float)]*len(pchicDF)
-    pchicDF['baitEnh'] = [np.empty(0,dtype=float)]*len(pchicDF)
-    pchicDF['oePr'] = [np.empty(0,dtype=float)]*len(pchicDF)
-    pchicDF['oeEnh'] = [np.empty(0,dtype=float)]*len(pchicDF)
-    pchicDF = pchicDF.astype({'baitChr':str}) 
-    pchicDF = pchicDF.astype({'oeChr':str}) 
-
-    def addElem(interDF, elemDF, pr_enh = 'Pr',loci_type='bait'):
+    def intersectElem(St,En,elemList):
         """
-        append column (loci_type+pr_enh) to dataframe (interDF)
+        returns all elements in elemList lying between St and En 
+        i.e. element x in output array IFF St<=x<En
         """
-        assert pr_enh in ['Pr','Enh']
-        col_name = loci_type+pr_enh
+        _elemList = np.array(elemList)[:,0].astype(np.int32)
+        stIdx = bisect.bisect_left(_elemList,St)
+        enIdx = bisect.bisect_left(_elemList,En)
+        return elemList[stIdx:enIdx]
 
-
-        # dictionary of (mid index, location) for array of elements ; dictionary keys = chromosomes; 
-        # the arrays for each chromosome are sorted by mid
-        elem_chr = elemDF.groupby(['chr'])[['mid','loc','name']].apply(lambda g: sorted(g.values.tolist(), key = lambda t: t[0])).to_dict()
-
+    def applyFunc(df,loci_type,elem_chr):
         Start = loci_type+'Start'
         End = loci_type+'End'
         chrom = loci_type+'Chr'
-        def appendElems(St,En,elemList):
-            """
-            returns all elements in elemList lying between St and En 
-            i.e. element x in output array IFF St<=x<En
-            """
-            _elemList = np.array(elemList)[:,0].astype(np.int32)
-            stIdx = bisect.bisect_left(_elemList,St)
-            enIdx = bisect.bisect_left(_elemList,En)
-            return elemList[stIdx:enIdx]
-        def applyFunc(df):
-            if df[chrom] in elem_chr.keys():
-                return appendElems(df[Start],df[End],elem_chr[df[chrom]])
-            return []
-        # import pdb
         # pdb.set_trace()
-        # interDF[chrom+'idx'] = interDF[chrom].str.strip().str[-1]
-        interDF[col_name] = interDF.apply(applyFunc,axis=1)
+        if df[chrom] in elem_chr.keys():
+            return intersectElem(df[Start],df[End],elem_chr[df[chrom]])
+        return []
 
-
-    addElem(pchicDF,prDF,'Pr',loci_type='bait')
-    addElem(pchicDF,enhDF,'Enh',loci_type='bait')
-    addElem(pchicDF,prDF,'Pr',loci_type='oe')
-    addElem(pchicDF,enhDF,'Enh',loci_type='oe')
+    pchicDF['baitPr'] = pchicDF.apply(lambda df:applyFunc(df,'bait',prChrDict),axis=1) 
+    pchicDF['baitEnh'] = pchicDF.apply(lambda df:applyFunc(df,'bait',enhChrDict),axis=1) 
+    pchicDF['oePr'] = pchicDF.apply(lambda df:applyFunc(df,'oe',prChrDict),axis=1) 
+    pchicDF['oeEnh'] = pchicDF.apply(lambda df:applyFunc(df,'oe',enhChrDict),axis=1) 
 
     if outputF:
         pchicDF.to_csv(outputF,index=False)
