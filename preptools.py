@@ -235,8 +235,8 @@ def concat_PCHiC_PE(hicTSV,promoter_dna,enhancer_dna,selectCell='MK',threshold =
     pchicDF['oeEnh'] = pchicDF.apply(lambda df:applyFunc(df,'oe',enhChrDict),axis=1) 
 
     if outputF:
-        pchicDF.to_csv(outputF,index=False)
-        # pd.read_csv(outputF)
+        pchicDF.to_pickle(outputF)
+        # pd.read_pickle(outputF)
     return pchicDF
 
 

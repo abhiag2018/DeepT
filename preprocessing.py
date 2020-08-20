@@ -70,7 +70,7 @@ bamfiles = list(itertools.chain.from_iterable(glob.glob(f"""{os.path.dirname(bam
 
 
 ## Hi-C Input
-HiCIntersections = lambda cell:f"{tmpBaseDir}/PCHiC_{cell}.csv"
+HiCIntersections = lambda cell:f"{tmpBaseDir}/PCHiC_{cell}.pkl"
 
 
 def elem_preprocessing(elem, bg_window, func):
