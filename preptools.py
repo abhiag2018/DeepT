@@ -240,7 +240,7 @@ def concat_PCHiC_PE(hicTSV,promoter_dna,enhancer_dna,selectCell='MK',threshold =
     return pchicDF
 
 
-def GroupGeneSymbol(mg,elemTransript):
+def GroupGeneSymbol(mg,elemTransript, elemVal):
     """
     input : list of Transcript Symbols for promoters
     output : list of tuples of (gene symbols, transcripts). 
@@ -257,15 +257,22 @@ def GroupGeneSymbol(mg,elemTransript):
     # get symbols from biomArt package
     gs = geneQuery(elemTransript)
 
+    valDict = {}
+    for t,v in zip(elemTransript,elemVal):
+        valDict[t] = v
+    gs['mid'] = gs['query'].apply(lambda x:valDict[x])
+
     # combine common geneSymbols and Transcripts with multiple geneSymbols
     gs['level'] = list(range(gs.shape[0]))
     gs['symbol'] = gs['symbol'].fillna(-1)
     gs['level'] = gs.groupby('symbol',sort=False)['level'].transform(lambda x:[min(x)]*len(x))
     gs['level'] = gs.groupby('query',sort=False)['level'].transform(lambda x:[min(x)]*len(x))
 
+    gs['elem'] = gs.apply(lambda df:(df['mid'],df['query']),axis=1)
+
     # classify and extract groups
     grouped = gs.groupby('level',sort=False)
-    s1 = grouped['query'].agg(lambda x:list(np.unique(x)))
+    s1 = grouped['elem'].agg(lambda x:list(np.unique(x)))
     s2 = grouped['symbol'].agg(lambda x:list(np.unique(x)))
 
     # print(elemTransript,"\n\n")
