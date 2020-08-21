@@ -45,4 +45,26 @@ reRun = False
 ## PCHiC Training Data
 
 hicTSV = f"{baseDataDir}/Javierre_ref_18/DATA_S1/PCHiC_peak_matrix_cutoff5.tsv"
-hicTSV_test = f"{baseDataDir}/Javierre_ref_18/DATA_S1/test.tsv"
+
+# gtf = f"{baseDataDir}/gencode.v19.annotation.gtf"
+gtf = f"{baseDataDir}/gencode.v3c.annotation.GRCh37.gtf" #ref release. 09/2009
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import OneHotEncoder
 from numba import jit, prange   
 import copy
-import mygene
+import gtfparse
 
 
 MAXATTEMPTS = 3
@@ -240,43 +240,27 @@ def concat_PCHiC_PE(hicTSV,promoter_dna,enhancer_dna,selectCell='MK',threshold =
     return pchicDF
 
 
-def GroupGeneSymbol(mg,elemTransript, elemVal):
-    """
-    input : list of Transcript Symbols for promoters
-    output : list of tuples of (gene symbols, transcripts). 
-        Such that all transcripts in a tuple have the same (unique or multiple) gene symbols.
-        Multiple gene symbols for transcripts arise since many input query terms (i.e. transcripts) have multiple gene symbol hits.
-    """
-    # mg = mygene.MyGeneInfo()
-    def geneQuery(TranscriptArr):
-        GeneSymbol = mg.querymany(TranscriptArr, scopes='ensembl.transcript',species="human",as_dataframe=True).reset_index()
-        if 'symbol' not in GeneSymbol.columns:
-            GeneSymbol['symbol'] = pd.Series(dtype=str)
-        return GeneSymbol.loc[:,['query','symbol']].copy()
+def GroupGeneSymbol(gtf,elemTransript, elemMid):
+    # gtf = gtfparse.read_gtf(gtfF)
 
-    # get symbols from biomArt package
-    gs = geneQuery(elemTransript)
+
+    # find transcripts in gtf database. If not found : ignore!
+    gtfTS = gtf[gtf['transcript_id'].isin(elemTransript)].copy()
+
+    # check if duplicates gene_names for transcript_id exist
+    dupl = gtfTS.groupby('transcript_id')['gene_name'].apply(lambda x:len(np.unique(x))>1)
+    assert sum(dupl)==0
 
     valDict = {}
-    for t,v in zip(elemTransript,elemVal):
+    for t,v in zip(elemTransript,elemMid):
         valDict[t] = v
-    gs['mid'] = gs['query'].apply(lambda x:valDict[x])
+    gtfTS.insert(0,'mid',gtfTS['transcript_id'].apply(lambda x:valDict[x]))
 
-    # combine common geneSymbols and Transcripts with multiple geneSymbols
-    gs['level'] = list(range(gs.shape[0]))
-    gs['symbol'] = gs['symbol'].fillna(-1)
-    gs['level'] = gs.groupby('symbol',sort=False)['level'].transform(lambda x:[min(x)]*len(x))
-    gs['level'] = gs.groupby('query',sort=False)['level'].transform(lambda x:[min(x)]*len(x))
+    gs = gtfTS.groupby('transcript_id').first().reset_index()
+    uniqL = lambda series:list(np.unique(series))
+    gs = gs.groupby('gene_name').agg({'gene_name':uniqL, 'transcript_id':list, 'mid':list})
+    return list(zip(gs['gene_name'],gs['mid'],gs['transcript_id']))
 
-    gs['elem'] = gs.apply(lambda df:(df['mid'],df['query']),axis=1)
-
-    # classify and extract groups
-    grouped = gs.groupby('level',sort=False)
-    s1 = grouped['elem'].agg(lambda x:list(np.unique(x)))
-    s2 = grouped['symbol'].agg(lambda x:list(np.unique(x)))
-
-    # print(elemTransript,"\n\n")
-    return list(zip(s2,s1))
 
 # def training_PE(base_dataDir,EP_dataPath,selectCell=None,threshold = 5,intTypeList=None,output_name='PCHiC'):
 

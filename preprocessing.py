@@ -3,7 +3,7 @@ import os, glob, shutil, sys, itertools
 import pandas as pd
 import preptools as pt
 import argparse, itertools
-from parameters import baseDataDir, codeTmpDir, bgWindow, promoter, enhancer, bamfilesInit, bamDir, intersectOptions, clearRun, reRun, hg19, hicTSV
+from parameters import baseDataDir, codeTmpDir, bgWindow, promoter, enhancer, bamfilesInit, bamDir, intersectOptions, clearRun, reRun, hg19, hicTSV, gtf
 
 
 def makedirs(dirpath,exist_ok = False):
