@@ -261,23 +261,6 @@ def GroupGeneSymbol(gtf,elemTransript, elemMid):
     gs = gs.groupby('gene_name').agg({'gene_name':uniqL, 'transcript_id':list, 'mid':list})
     return list(zip(gs['gene_name'],gs['mid'],gs['transcript_id']))
 
-
-# def training_PE(base_dataDir,EP_dataPath,selectCell=None,threshold = 5,intTypeList=None,output_name='PCHiC'):
-
-#     df = concat_PCHiC_PE(base_dataDir,EP_dataPath,selectCell=selectCell)
-#     baitPr = df.apply(lambda df:len(eval(df['baitPr'])),axis=1)
-#     baitEnh = df.apply(lambda df:len(eval(df['baitEnh'])),axis=1)
-#     oeEnh = df.apply(lambda df:len(eval(df['oeEnh'])),axis=1)
-#     oePr = df.apply(lambda df:len(eval(df['oePr'])),axis=1)
-#     for intType in intTypeList:
-#         assert intType in ['PE','PP']
-#         if intType == 'PE':
-#             EP_df =  df[((baitPr==0) & (baitEnh==1) & (oePr==1) & (oeEnh==0)) | ((baitPr==1) & (baitEnh==0) & (oePr==0) & (oeEnh==1)) ]
-#         else:
-#             EP_df =  df[((baitPr==1) & (baitEnh==0) & (oePr==1) & (oeEnh==0))]
-#         EP_df.to_csv(f"{base_dataDir}/{output_name}_{intType}_{selectCell}.csv",index=False)
-#     return
-
 def decompress_dir_recursive(glob_expr):
     for file in glob.glob(glob_expr):
         print("converting", os.path.basename(file),"..",end=" ")
