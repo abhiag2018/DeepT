@@ -176,31 +176,34 @@ def process_enhancer_bed(enh_allfield,out_path,headers,window=2000):
     enh.to_csv(out_path,sep='\t',header=False,index=False)
     return out_path
 
+
+def getChrDict(dna_out_file):
+    """
+    convert elements list into a dictionary keyed by chromosome; containing the (mid site, name ) tuple lists
+    """
+    def extractElem(elems):
+        """for each element (promoters or enhancers) extract the chromosome info, start bp index, end bp index, and mid bp index"""
+        matchObj = [re.match('chr([0-9XY]+):([0-9]+)-([0-9]+)',pr) for pr in elems]
+        Chr = [obj.group(1) for obj in matchObj]
+        Start = [int(obj.group(2)) for obj in matchObj]
+        End = [int(obj.group(3)) for obj in matchObj]
+        Mid = [(x+y)//2 for x,y in zip(Start,End)]
+        return Chr, Start, End, Mid
+
+    elemData = np.load(dna_out_file,allow_pickle=True)
+    elemChr, _, _, elemMid = extractElem(elemData['loc'])
+    elemDF = pd.DataFrame({'chr':elemChr,'mid':elemMid, 'name':elemData['name']})
+    # dictionary of (mid index, name) for array of elements ; dictionary keys = chromosomes; 
+    # the arrays for each chromosome are sorted by mid
+    return elemDF.groupby(['chr'])[['mid','name']].apply(lambda g: sorted(g.values.tolist(), key = lambda t: t[0])).to_dict()
+
+
 def concat_PCHiC_PE(hicTSV,promoter_dna,enhancer_dna,selectCell='MK',threshold = 5, outputF=None, sampleFrac=None):
     """
     input : PCHiC tsv file, promoter .fa file, enhancer .fa file
     output : csv file with columns, baitPr, baitEnh, oePr, and oeEnh. 
         Corresponding to promoters and enhancers mid site intersecting with the bait and oe regions
     """
-
-    def extractElem(elems):
-        """for each element (promoters or enhancers) extract the chromosome info, start bp index, end bp index, and mid bp index"""
-        Chr = [re.match('chr([0-9XY])+:([0-9]+)-([0-9]+)',pr).group(1) for pr in elems]
-        Start = [int(re.match('chr([0-9XY])+:([0-9]+)-([0-9]+)',pr).group(2)) for pr in elems]
-        End = [int(re.match('chr([0-9XY])+:([0-9]+)-([0-9]+)',pr).group(3)) for pr in elems]
-        Mid = [(x+y)//2 for x,y in zip(Start,End)]
-        return Chr, Start, End, Mid
-
-    def getChrDict(dna_out_file):
-        """
-        convert elements list into a dictionary keyed by chromosome; containing the (mid site, name ) tuple lists
-        """
-        elemData = np.load(dna_out_file,allow_pickle=True)
-        elemChr, _, _, elemMid = extractElem(elemData['loc'])
-        elemDF = pd.DataFrame({'chr':elemChr,'mid':elemMid, 'name':elemData['name']})
-        # dictionary of (mid index, name) for array of elements ; dictionary keys = chromosomes; 
-        # the arrays for each chromosome are sorted by mid
-        return elemDF.groupby(['chr'])[['mid','name']].apply(lambda g: sorted(g.values.tolist(), key = lambda t: t[0])).to_dict()
 
     prChrDict =  getChrDict(promoter_dna)
     enhChrDict = getChrDict(enhancer_dna)
@@ -210,7 +213,7 @@ def concat_PCHiC_PE(hicTSV,promoter_dna,enhancer_dna,selectCell='MK',threshold =
     if sampleFrac:
         pchicDF = pchicDF.sample(frac=sampleFrac, axis=0)
 
-    def intersectElem(St,En,elemList):
+    def intersectSortedElem(St,En,elemList):
         """
         returns all elements in elemList lying between St and En 
         i.e. element x in output array IFF St<=x<En
@@ -226,7 +229,7 @@ def concat_PCHiC_PE(hicTSV,promoter_dna,enhancer_dna,selectCell='MK',threshold =
         chrom = loci_type+'Chr'
         # pdb.set_trace()
         if df[chrom] in elem_chr.keys():
-            return intersectElem(df[Start],df[End],elem_chr[df[chrom]])
+            return intersectSortedElem(df[Start],df[End],elem_chr[df[chrom]])
         return []
 
     pchicDF['baitPr'] = pchicDF.apply(lambda df:applyFunc(df,'bait',prChrDict),axis=1) 

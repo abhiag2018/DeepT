@@ -74,6 +74,7 @@ HiC_Match = lambda cell:f"{tmpBaseDir}/pchicMatch_{cell}.pkl"
 HiC_GroupMatch = lambda cell:f"{tmpBaseDir}/pchicGroupMatch_{cell}.pkl"
 HiC_UniqueMatchPE = lambda cell:f"{tmpBaseDir}/pchicUniqueMatchPE_{cell}.pkl"
 HiC_UniqueMatchEP = lambda cell:f"{tmpBaseDir}/pchicUniqueMatchEP_{cell}.pkl"
+HiC_TrainingPos = lambda cell:f"{tmpBaseDir}/pchicTrainingPos_{cell}.csv"
 HiC_Training = lambda cell:f"{tmpBaseDir}/pchicTraining_{cell}.csv"
 
 

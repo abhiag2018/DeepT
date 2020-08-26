@@ -4,6 +4,7 @@ import argparse
 import gtfparse
 import preptools as pt
 import pandas as pd
+import matplotlib.pyplot as plt
 import random
 
 
@@ -14,7 +15,7 @@ def HiCMatch(hicTSV, hic_out, promoter_dna, enhancer_dna, cell, th):
     print('matching PCHiC Data to promoter & enhancers..',end=" ",flush=True)
     pchicDF = pt.concat_PCHiC_PE(hicTSV,promoter_dna,enhancer_dna, selectCell=cell, threshold = th,
                                  outputF=hic_out,
-                                 sampleFrac=.01)
+                                 sampleFrac=None)
     print('.',flush=True)
     return 0
 
@@ -95,7 +96,7 @@ def hicUniqueMatch(hicGroupMatched, hic_out_PE=None, hic_out_EP=None):
     return pehic,ephic
 
 
-def hicTrainingCSV(hicUniquePE, hicUniqueEP, prwin, enhwin, traindata_out = None):
+def HiCTrainingPosLabel(hicUniquePE, hicUniqueEP, prwin, enhwin, traindata_out = None):
     """
     select the data from the columns of the training data and put them in appropriate format
     """
@@ -133,6 +134,107 @@ def hicTrainingCSV(hicUniquePE, hicUniqueEP, prwin, enhwin, traindata_out = None
     return trainDF
 
 
+def intersectHiCElem(pchicDF, elemMid, chrom, intersectWith = 'bait'):
+    hicDF = pchicDF[pchicDF[intersectWith+'Chr'] == chrom]
+
+    assert intersectWith in ['bait','oe']
+    if intersectWith=='bait':
+        intersectOther = 'oe'
+    else:
+        intersectOther = 'bait'
+
+    st = intersectWith+'Start'
+    en = intersectWith+'End'
+
+    stOth = intersectOther+'Start'
+    enOth = intersectOther+'End'
+
+    
+    intersectedRows =  hicDF[(hicDF[st]<=elemMid) & (elemMid<hicDF[en])]
+    return intersectedRows[stOth], intersectedRows[enOth]
+
+
+checkInter =lambda st,en,elem:sum((st<=elem) & (elem<en))>0
+
+def HiCTrainingNegLabel(hicTSV, cell, th, pos_training, promoter_dna, enhancer_dna, prwin, enhwin,hic_out = None, numSamples=None):
+    """
+    add negative training labels according to histogram of positive training labels
+    """
+    # pos_training = prep.HiC_Training('MK')
+    # promoter_dna = prep.promoter['dna-out']
+    # enhancer_dna = prep.enhancer['dna-out']
+    pchicDF = pd.read_csv(hicTSV,delimiter="\t",dtype={'baitChr':str,'oeChr':str})
+    pchicDF = pchicDF[pchicDF[cell]>=th]
+
+
+    LINF = -2e6 #2 Mbp is the max distance
+    RINF = 2e6
+    side_prob = 0.1
+
+    trainData = pd.read_csv(pos_training)
+    TrainLbl = {'enhancer_chrom': str, 'enhancer_start':int, 'enhancer_end':int, 'enhancer_name':str, 'promoter_chrom':str, 'promoter_start':int, 'promoter_end':int, 'promoter_name':str, 'label':int}
+    trainData = trainData.astype(TrainLbl)
+    if numSamples is None:
+        numSamples = trainData.shape[0]
+
+    _freq, _bins, _ = plt.hist((trainData.enhancer_start + trainData.enhancer_end)//2  - (trainData.promoter_start + trainData.promoter_end)//2)
+    bins = np.concatenate(([LINF], _bins, [RINF]))
+    freq = np.concatenate(([side_prob/2], _freq/sum(_freq), [side_prob/2]))
+
+    prDict = pt.getChrDict(promoter_dna)
+    enhDict = pt.getChrDict(enhancer_dna)
+
+    all_chrom = list([str(x) for x in range(1,23)]) + list('XY')
+
+    promoters = []
+    enhancers=[]
+    chroms = []
+    for _ in range(numSamples):
+        chrom = np.random.choice(all_chrom)
+
+        prMid = pd.Series(sorted(prDict[chrom],key=lambda x:x[0])).apply(lambda x:[int(x[0]),x[1]])
+        enhMid = pd.Series(sorted(enhDict[chrom],key=lambda x:x[0])).apply(lambda x:[int(x[0]),x[1]])
+
+        promoter = np.random.choice(prMid)
+
+        p = np.zeros(len(enhMid))
+        part = np.searchsorted(enhMid.apply(lambda x:x[0]).to_numpy() - promoter[0], bins)
+        
+        for binID in range(1,len(part)):
+            if part[binID]-part[binID-1] > 0:
+                val = freq[binID-1]/(part[binID]-part[binID-1])
+                p[part[binID-1]:part[binID]] = val
+        p = p/sum(p)
+
+        _st1, _en1 = intersectHiCElem(pchicDF, promoter[0], chrom, intersectWith = 'bait')
+        _st2, _en2 = intersectHiCElem(pchicDF, promoter[0], chrom, intersectWith = 'oe')
+        enhancer = np.random.choice(enhMid,p=p)
+        while checkInter(_st1,_en1,enhancer[0]) or checkInter(_st2,_en2,enhancer[0]):
+            print(".",end="",flush=True)
+            enhancer = np.random.choice(enhMid,p=p)
+        print(" .",flush=True)
+
+        chroms.append(chrom)
+        promoters.append(promoter)
+        enhancers.append(enhancer)
+
+
+    prMids = pd.Series(np.array(promoters)[:,0]).apply(int).to_numpy()
+    prNames = np.array(promoters)[:,1]
+    enhMids = pd.Series(np.array(enhancers)[:,0]).apply(int).to_numpy()
+    enhNames = np.array(enhancers)[:,1]
+
+    negTrain={'enhancer_chrom': chroms, 'enhancer_start': enhMids - enhwin//2, 'enhancer_end': enhMids + enhwin//2, 'enhancer_name': enhNames, 
+        'promoter_chrom': chroms, 'promoter_start': prMids - prwin//2, 'promoter_end': prMids + prwin//2, 'promoter_name': prNames, 
+        'label': [0]*numSamples}
+
+    negTrain = pd.DataFrame(data=negTrain)
+    negTrain = negTrain.astype(TrainLbl)
+    Data = pd.concat([trainData,negTrain])
+    if hic_out:
+        Data.to_csv(hic_out,index=False)
+    return Data
+
 if __name__=="__main__":
     import preprocessing as prep
 
@@ -148,23 +250,28 @@ if __name__=="__main__":
     promoter_dna = prep.promoter['dna-out']
     enhancer_dna = prep.enhancer['dna-out']
     cell = 'MK'
-    th = 5
+    th_pos = 5
+    th_neg = 0
 
     hic1 = prep.HiC_Match(cell)
     hic2 = prep.HiC_GroupMatch(cell)
     hic_out_PE = prep.HiC_UniqueMatchPE(cell)
     hic_out_EP = prep.HiC_UniqueMatchEP(cell)
+    hicTraining_pos = prep.HiC_TrainingPos(cell)
     hicTraining = prep.HiC_Training(cell)
+
     prwin = prep.promoter['window']
     enhwin =  prep.enhancer['window']
+    numSamples = 100
     # for cell in ['tB','tCD4','nCD4','FoeT','Mon','tCD8']:
 
-    # HiCMatch(hicTSV, hic1, promoter_dna, enhancer_dna, cell, th)
+    HiCMatch(hicTSV, hic1, promoter_dna, enhancer_dna, cell, th_pos)
 
     # transcriptsToGene(gtfFile, hic1, hic2)
 
     # hicUniqueMatch(hic2, hic_out_PE, hic_out_EP)
 
-    hicTrainingCSV(hic_out_PE, hic_out_EP, prwin, enhwin, traindata_out = hicTraining)
-
+    # HiCTrainingPosLabel(hic_out_PE, hic_out_EP, prwin, enhwin, traindata_out = hicTraining_pos)
+    
+    # HiCTrainingNegLabel(hicTSV, cell, th_neg, hicTraining_pos, promoter_dna, enhancer_dna, prwin, enhwin, hic_out = hicTraining, numSamples=None)
 
