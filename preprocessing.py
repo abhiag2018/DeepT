@@ -77,6 +77,7 @@ HiC_UniqueMatchEP = lambda cell:f"{tmpBaseDir}/pchicUniqueMatchEP_{cell}.pkl"
 HiC_TrainingPos = lambda cell:f"{tmpBaseDir}/pchicTrainingPos_{cell}.csv"
 HiC_Training = lambda cell:f"{tmpBaseDir}/pchicTraining_{cell}.csv"
 
+HiCParts = [f"{baseDataDir}/pchic_{i}.csv" for i in range(10)]
 
 def elem_preprocessing(elem, bg_window, func):
     """ element pre-processing"""
@@ -113,7 +114,7 @@ if __name__=="__main__":
     args = pt.process_inputArgs(input_parse=sys.argv[1:])
     # args = pt.process_inputArgs(input_parse=['--file_index',0,'--nTasks',52,'--taskType','pWin'])
  
-    assert args.taskType in ["prep","prepPr","prepEnh","splitBam"]
+    assert args.taskType in ["prep","prepPr","prepEnh","splitBam","prepHiC"]
 
     clean_run = clearRun
 
@@ -133,6 +134,8 @@ if __name__=="__main__":
             makedirs(os.path.dirname(enhancer['bg-intersect-out'](bam_file)),exist_ok=not clean_run)
         elem_preprocessing(enhancer, bgWindow, pt.process_enhancer_bed)
 
+    if args.taskType=="prep" or args.taskType=="prepHiC":
+        pt.splitCSV(hicTSV, HiCParts, readArgs= {'delimiter':'\t'}, writeArgs= {'index':False})
 
 
 

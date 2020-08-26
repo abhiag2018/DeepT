@@ -50,6 +50,25 @@ def concat_files(file_list,output_path):
         return 1
     return 0
 
+def splitCSV(input_path, out_paths, readArgs = {}, writeArgs = {}):
+    """
+    split an input csv file into N(=len(out_paths)) parts
+    out_paths = [f"output_path_{i}.csv" for i in range(N)] #output path name function
+    """
+    N = len(out_paths)
+
+    df = pd.read_csv(input_path,**readArgs) # reading file
+    max_lines = len(df)
+    numlines = int(np.ceil(max_lines/N))
+    low = np.arange(0,max_lines,numlines)
+    high = np.concatenate((low[1:],[max_lines]))
+
+    for i in range(N):
+        df_new = df[low[i]:high[i]] # subsetting DataFrame based on index
+        df_new.to_csv(out_paths[i],**writeArgs) # output file 
+    return 0
+
+
 def fasta_seq_length(fastaf):
     with open(fastaf,'r') as ff:
         for line in ff: 

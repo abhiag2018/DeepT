@@ -10,7 +10,7 @@
 
 num_tasks=$SLURM_ARRAY_TASK_COUNT
 
-optionsPrep=('splitBam' 'prep' 'prepPr' 'prepEnh')
+optionsPrep=('splitBam' 'prep' 'prepPr' 'prepEnh' 'prepHiC')
 
 optionsProc=()
 for _t in 'Win' 'TaskList' 'Intersect' 'cTaskList' 'Combine' 'PostProcess'
@@ -79,6 +79,7 @@ fi
 
 # sbatch -J prepPr scriptDT.sh prepPr
 # sbatch -J prepEnh scriptDT.sh prepEnh
+# # sbatch -J splitBam scriptDT.sh prepHiC
 # # sbatch -J splitBam -a 0-300 scriptDT.sh splitBam
 # sbatch -J pWin -a 0-300 scriptDT.sh pWin
 # sbatch -J eWin -a 0-300 scriptDT.sh eWin
