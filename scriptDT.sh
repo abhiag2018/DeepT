@@ -79,8 +79,8 @@ fi
 
 # sbatch -J prepPr scriptDT.sh prepPr
 # sbatch -J prepEnh scriptDT.sh prepEnh
-# # sbatch -J splitBam scriptDT.sh prepHiC
-# # sbatch -J splitBam -a 0-300 scriptDT.sh splitBam
+# sbatch -J prepHiC scriptDT.sh prepHiC
+# sbatch -J splitBam -a 0-300 scriptDT.sh splitBam
 # sbatch -J pWin -a 0-300 scriptDT.sh pWin
 # sbatch -J eWin -a 0-300 scriptDT.sh eWin
 
@@ -107,7 +107,7 @@ fi
 
 ###
 
-# sbatch -J Convert scriptDT.sh Convert
+# sbatch -J Convert -a 0-13  scriptDT.sh Convert
 
 
 

@@ -135,7 +135,7 @@ if __name__=="__main__":
         elem_preprocessing(enhancer, bgWindow, pt.process_enhancer_bed)
 
     if args.taskType=="prep" or args.taskType=="prepHiC":
-        pt.splitCSV(hicTSV, HiCParts, readArgs= {'delimiter':'\t'}, writeArgs= {'index':False})
+        pt.splitCSV(hicTSV, HiCParts, readArgs= {'delimiter':'\t'}, writeArgs= {'index':False,'sep':'\t'})
 
 
 

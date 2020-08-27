@@ -195,7 +195,6 @@ def process_enhancer_bed(enh_allfield,out_path,headers,window=2000):
     enh.to_csv(out_path,sep='\t',header=False,index=False)
     return out_path
 
-
 def getChrDict(dna_out_file):
     """
     convert elements list into a dictionary keyed by chromosome; containing the (mid site, name ) tuple lists
@@ -262,23 +261,29 @@ def concat_PCHiC_PE(hicTSV,promoter_dna,enhancer_dna,selectCell='MK',threshold =
     return pchicDF
 
 
-def GroupGeneSymbol(gtf,elemTransript, elemMid):
+def GroupGeneSymbol(gtf, elemTransript, elemMid):
+    """
+    input:
+        gtf: gene annotation file
+        elemTransript: transcripts list for a single PCHiC interaction 
+        elemMid: some data corresponding to the trancripts (in the same order in the list)
+    output : 
+        grouped (gene, transcripts, elemMid)
+    """
     # gtf = gtfparse.read_gtf(gtfF)
-
-
     # find transcripts in gtf database. If not found : ignore!
     gtfTS = gtf[gtf['transcript_id'].isin(elemTransript)].copy()
 
-    # check if duplicates gene_names for transcript_id exist
+    # check if duplicates gene_names for transcript_id exist in gtf file 
     dupl = gtfTS.groupby('transcript_id')['gene_name'].apply(lambda x:len(np.unique(x))>1)
-    assert sum(dupl)==0
+    assert sum(dupl)==0 # they shouldn't
 
     valDict = {}
     for t,v in zip(elemTransript,elemMid):
         valDict[t] = v
     gtfTS.insert(0,'mid',gtfTS['transcript_id'].apply(lambda x:valDict[x]))
 
-    gs = gtfTS.groupby('transcript_id').first().reset_index()
+    gs = gtfTS.groupby('transcript_id').first().reset_index() # since there are no duplicates this statement is useless
     uniqL = lambda series:list(np.unique(series))
     gs = gs.groupby('gene_name').agg({'gene_name':uniqL, 'transcript_id':list, 'mid':list})
     return list(zip(gs['gene_name'],gs['mid'],gs['transcript_id']))
