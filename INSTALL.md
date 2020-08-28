@@ -77,3 +77,53 @@ Located at demo/P-E in .npz file format. For each of promoter and enhancer as \<
 
 Similarly for `enh['expr']`.
 
+# Input Cell Types
+
+## DNase-Seq Data 
+
+Human Cell Types. Primary Cells
+
+	1. FoeT: Fetal Thymus primary tissue
+	2. Mon: CD4+ monocyte
+	3. nCD4: Naive CD4+ T cells
+	4. tB: B Cells
+	5. tCD4: CD4+ alpha-beta T cell
+	6. tCD8: CD8+ alpha-beta T cell
+
+## PCHi-C Data
+
+	1. Mon: Monocytes
+	2. Mac0: Macrophages M0
+	3. Mac1: Macrophages M1
+	4. Mac2: Macrophages M2
+	5. Neu: Neutrophils
+	6. MK: Megakaryocytes
+	7. EP: Endothelial Precursors
+	8. Ery: Erythroblasts
+	9. FoeT: Fetal Thymus
+	10. nCD4: Naïve CD4+
+	11. tCD4: Total CD4+
+	12. aCD4: Activated Total CD4+
+	13. naCD4: Non-activated Total CD4+
+	14. nCD8: Naïve CD8+ 
+	15. tCD8: Total CD8+
+	16. nB: Naïve B
+	17. tB: Total B
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

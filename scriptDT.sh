@@ -70,7 +70,8 @@ elif [[ ${optionsDNA[@]} == *$option* ]]; then
 	python process_fasta.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID	
 elif [[ ${optionsPCHiC[@]} == *$option* ]]; then
 	echo  "run process_PCHiC.py"
-	python process_PCHiC.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID	
+	cellType=$2
+	python process_PCHiC.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID --cellType=$cellType
 else
 	echo  "run process_Dnase.py"
 	python process_Dnase.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID
@@ -107,7 +108,13 @@ fi
 
 ###
 
-# sbatch -J Convert -a 0-13  scriptDT.sh Convert
+# sbatch -J Convert -a 0-13  scriptDT.sh Convert tB
+# sbatch -J Convert -a 0-13  scriptDT.sh Convert tCD4
+# sbatch -J Convert -a 0-13  scriptDT.sh Convert nCD4
+# sbatch -J Convert -a 0-13  scriptDT.sh Convert FoeT
+# sbatch -J Convert -a 0-13  scriptDT.sh Convert Mon
+# sbatch -J Convert -a 0-13  scriptDT.sh Convert tCD8
+# sbatch -J Convert scriptDT.sh Convert
 
 
 
