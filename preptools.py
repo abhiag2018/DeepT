@@ -256,8 +256,10 @@ def concat_PCHiC_PE(hicTSV,promoter_dna,enhancer_dna,selectCell='MK',threshold =
     pchicDF['oeEnh'] = pchicDF.apply(lambda df:applyFunc(df,'oe',enhChrDict),axis=1) 
 
     if outputF:
+        print(f"saving converted file to {outputF}..",end=" ",flush=True)
         pchicDF.to_pickle(outputF)
         # pd.read_pickle(outputF)
+        print(".",flush=True)
     return pchicDF
 
 
@@ -435,11 +437,13 @@ def post_process(bg_intersect_out, bg_win, Head, intersect_out, out_dim, out_pat
     np.savez(out_path,expr=Dnase_data)
     return out_path
 
-def process_inputArgs(input_parse=sys.argv):
+def process_inputArgs(input_parse=sys.argv, argType = {'file_index':(int,'index of task to execute'), 'nTasks':(int,'total number of tasks'), 'taskType':(str,'total number of tasks') } ):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--file_index', help='index of task to execute',type=int)
-    parser.add_argument('--nTasks', help='total number of tasks',type=int)
-    parser.add_argument('--taskType', help='total number of tasks',type=str)
+    for t in argType:
+        parser.add_argument(f"--{t}", help=argType[t][1],type=argType[t][0])
+    # parser.add_argument('--file_index', help='index of task to execute',type=int)
+    # parser.add_argument('--nTasks', help='total number of tasks',type=int)
+    # parser.add_argument('--taskType', help='total number of tasks',type=str)
     args = parser.parse_args(input_parse)
 
     if args.file_index and args.file_index>args.nTasks:
