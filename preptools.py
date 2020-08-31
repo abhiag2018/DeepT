@@ -68,6 +68,20 @@ def splitCSV(input_path, out_paths, readArgs = {}, writeArgs = {}):
         df_new.to_csv(out_paths[i],**writeArgs) # output file 
     return 0
 
+def makedirs(dirpath,exist_ok = False):
+    """
+    Creates all directories in dirpath. If dirpath already exists, old directories are deleted if exist_ok = False, 
+        otherwise dirpath is over-written.
+    input : 
+        dirpath: absolute directory path
+        exist_ok: create directory option
+    """
+    try:
+        os.makedirs(dirpath,exist_ok=exist_ok)
+    except FileExistsError:
+        shutil.rmtree(dirpath)
+        os.makedirs(dirpath,exist_ok=exist_ok)
+    return 0
 
 def fasta_seq_length(fastaf):
     with open(fastaf,'r') as ff:
@@ -408,6 +422,19 @@ def combine_intersectBed(bedfiles, Head, outputf, remove=False):
         for f in bedfiles:
             os.remove(f)
     return outputf
+
+def combine(input_files, hic_out):
+    """
+    combine pandas DataFrames  into another pandas DataFrame and save pickled output.
+    input :
+        input_files: list of *pickled* pandas DataFrame of the same format
+        hic_out : pickled output path
+    """
+    print(f"saving converted file to {hic_out}..",end=" ",flush=True)
+    pd.concat([pd.read_pickle(inp) for inp in input_files]).to_pickle(hic_out)
+    print(".",flush=True)
+    return 0
+
 
 def post_process(bg_intersect_out, bg_win, Head, intersect_out, out_dim, out_path):
     """
