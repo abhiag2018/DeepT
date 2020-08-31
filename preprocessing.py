@@ -1,57 +1,56 @@
+"""
+- specify intermediate and final preprocessing output file names and path
+- do elementary pre-processing
+"""
 import colored_traceback.always
 import os, glob, shutil, sys, itertools
 import pandas as pd
 import preptools as pt
 import argparse, itertools
-from parameters import baseDataDir, codeTmpDir, bgWindow, promoter, enhancer, bamfilesInit, bamDir, intersectOptions, clearRun, reRun, hg19, hicTSV, gtf
+from parameters import baseDataDir, tmpBaseDir, codeTmpDir, bgWindow, promoter, enhancer, bamfilesInit, bamDir, intersectOptions, clearRun, reRun, hg19, hicTSV, gtf
 
 
-def makedirs(dirpath,exist_ok = False):
-    try:
-        os.makedirs(dirpath,exist_ok=exist_ok)
-    except FileExistsError:
-        shutil.rmtree(dirpath)
-        os.makedirs(dirpath,exist_ok=exist_ok)
-    return 0
-
-baseBaseName = lambda f: f.split("/")[-1].split(".")[0]
-midBaseName = lambda f: f.split("/")[-1].split(".")[1:-1]
+baseBaseName = lambda f: f.split("/")[-1].split(".")[0] # extract basename from file path (no extension)
+midBaseName = lambda f: f.split("/")[-1].split(".")[1:-1]  # extract middle names list from file path (no extension)
 
 
 NameSys = lambda bam_file,name,append,ext: f"""{baseBaseName(bam_file) if bam_file else "."}/{name}{"."+".".join(append) if append else ""}.{ext}"""
+# rel path and file name format for .bam file intersection with promoter/enhancer.
+# input : 
+#     bam_file: specifies the rel directory
+#     name: main name of file (specified whether .bam file is intersected with background length or main .bed window)
+#     append: append to specify split file chromosome or window index
+#     ext: extension
 
-nameWinBed = 'win'
-nameIntersectBG = 'intersect_BG'
-nameIntersectWin = 'intersect_win'
-nameDnaseOut = 'DNase'
-nameDNAout = 'DNA_Seq'
-
-tmpBaseDir = "/fastscratch/agarwa/DeepTact_tmp"
-
+nameWinBed = 'win' # main name for .bed file split into 1k/2k/.. windows. (Used later for intersection with .bam files for DNase input to DeepTact)
+nameIntersectBG = 'intersect_BG' # main name for .bam and background .bed file intersection output
+nameIntersectWin = 'intersect_win' # main name for .bam and window .bed file intersection output
+nameDnaseOut = 'DNase' # main name for .npz output for DNase-Seq data
+nameDNAout = 'DNA_Seq' # main name for .npz output for DNA-Sequence data
 
 ## promoter parameters
-promoter['bed-path']=  f"{baseDataDir}/hg19_promoter_TSS.bed"
-promoter['bg-path']= f"{baseDataDir}/hg19_promoter_BG.bed"
-promoter['tmp-dir']= f"{tmpBaseDir}/tmp_promoter.1"
+promoter['bed-path']=  f"{baseDataDir}/hg19_promoter_TSS.bed"  #main bed file containing element with the appropriate length 1k/2k/..
+promoter['bg-path']= f"{baseDataDir}/hg19_promoter_BG.bed" #bed file defining the background for element with the appropriate length 1MB..
+promoter['tmp-dir']= f"{tmpBaseDir}/tmp_promoter.1" # temporary data directory for promoter
 
-promoter['intersect-tasklist'] = f"{promoter['tmp-dir']}/prTaskList.npz"
-promoter['combine-bed-tasklist'] = f"{promoter['tmp-dir']}/prCombineBedTasklist.npz"
+promoter['intersect-tasklist'] = f"{promoter['tmp-dir']}/TaskList.npz"  # tasklist for pt.distribute_task(..) function to run 'bedtools intersect'
+promoter['combine-bed-tasklist'] = f"{promoter['tmp-dir']}/CombineBedTasklist.npz"  # tasklist for pt.distribute_task(..) function to combine output of chromosome split 'bedtools intersect' output
 
-promoter['winBed-path']=  lambda X:f"""{promoter['tmp-dir']}/{NameSys('',nameWinBed,[str(X)],'bed')}"""
-promoter['bg-intersect-out'] =  lambda bam_file: f"""{promoter['tmp-dir']}/{NameSys(bam_file,nameIntersectBG,midBaseName(bam_file),"bed")}"""
-promoter['intersect-out']=  lambda bam_file,X:f"""{promoter['tmp-dir']}/{NameSys(bam_file,nameIntersectWin,[str(X)]+midBaseName(bam_file),"bed")}"""
-promoter['dnase-out']=  lambda bam_file:f"""{promoter['tmp-dir']}/{NameSys(bam_file,nameDnaseOut,[],"npz")}"""
+promoter['winBed-path']=  lambda X:f"""{promoter['tmp-dir']}/{NameSys('',nameWinBed,[str(X)],'bed')}""" # .bed filepath after splitting promoter's main .bed file into windows for intersection with .bam
+promoter['bg-intersect-out'] =  lambda bam_file: f"""{promoter['tmp-dir']}/{NameSys(bam_file,nameIntersectBG,midBaseName(bam_file),"bed")}""" # bedtools intersect output filepath for intersection of .bam file with element's background .bed file
+promoter['intersect-out']=  lambda bam_file,X:f"""{promoter['tmp-dir']}/{NameSys(bam_file,nameIntersectWin,[str(X)]+midBaseName(bam_file),"bed")}""" # bedtools intersect output filepath for intersection of .bam file with element's window .bed file. X : window index
+promoter['dnase-out']=  lambda bam_file:f"""{promoter['tmp-dir']}/{NameSys(bam_file,nameDnaseOut,[],"npz")}""" # DNase-Seq output .npz file
 
-promoter['fa-out']=f"{baseDataDir}/promoter.fa"
-promoter['dna-out'] = f"{promoter['tmp-dir']}/{nameDNAout}.npz"
+promoter['fa-out']=f"{baseDataDir}/promoter.fa" # fasta file for promoters of length 1k/2k/..
+promoter['dna-out'] = f"{promoter['tmp-dir']}/{nameDNAout}.npz" # DNA-Sequence output .npz file
 
 ## enhancer parameters
 enhancer['bed-path']= f"{baseDataDir}/enhancers_fantom5/human_enhancers_window.bed"
 enhancer['bg-path']= f"{baseDataDir}/hg19_enhancer_BG.bed"
 enhancer['tmp-dir']= f"{tmpBaseDir}/tmp_enhancer.1"
 
-enhancer['intersect-tasklist'] = f"{enhancer['tmp-dir']}/enhTaskList.npz"
-enhancer['combine-bed-tasklist'] = f"{enhancer['tmp-dir']}/prCombineBedTasklist.npz"
+enhancer['intersect-tasklist'] = f"{enhancer['tmp-dir']}/TaskList.npz"
+enhancer['combine-bed-tasklist'] = f"{enhancer['tmp-dir']}/CombineBedTasklist.npz"
 
 enhancer['winBed-path']=  lambda X:f"""{enhancer['tmp-dir']}/{NameSys('',nameWinBed,[str(X)],'bed')}"""
 enhancer['bg-intersect-out'] =  lambda bam_file: f"""{enhancer['tmp-dir']}/{NameSys(bam_file,nameIntersectBG,midBaseName(bam_file),"bed")}"""
@@ -80,7 +79,11 @@ HiC_Training = lambda cell:f"{tmpBaseDir}/pchicTraining_{cell}.csv"
 HiCParts = [f"{baseDataDir}/pchic_{i}.csv" for i in range(10)]
 
 def elem_preprocessing(elem, bg_window, func):
-    """ element pre-processing"""
+    """ 
+    element pre-processing function : from the downloaded files for the elements --promoters and enhancers-- creates 
+        the background and main bed file with the appropriate window sizes.
+        The output path is specified in the variables *element*['bed-path'] and *element*['bg-path'] wher *element* = [promoter, enhancer]
+    """
     bed_path = elem['bed-path']
     headers = elem['headers']
     window = elem['window']
@@ -123,15 +126,15 @@ if __name__=="__main__":
         split_bam(args, bamfilesInit)
 
     if args.taskType=="prep" or args.taskType=="prepPr":
-        makedirs(promoter['tmp-dir'],exist_ok=not clean_run)
+        pt.makedirs(promoter['tmp-dir'],exist_ok=not clean_run)
         for bam_file in bamfilesInit:
-            makedirs(os.path.dirname(promoter['bg-intersect-out'](bam_file)),exist_ok=not clean_run)
+            pt.makedirs(os.path.dirname(promoter['bg-intersect-out'](bam_file)),exist_ok=not clean_run)
         elem_preprocessing(promoter, bgWindow, pt.process_promoter_bed)
 
     if args.taskType=="prep" or args.taskType=="prepEnh":
-        makedirs(enhancer['tmp-dir'],exist_ok=not clean_run)
+        pt.makedirs(enhancer['tmp-dir'],exist_ok=not clean_run)
         for bam_file in bamfilesInit:
-            makedirs(os.path.dirname(enhancer['bg-intersect-out'](bam_file)),exist_ok=not clean_run)
+            pt.makedirs(os.path.dirname(enhancer['bg-intersect-out'](bam_file)),exist_ok=not clean_run)
         elem_preprocessing(enhancer, bgWindow, pt.process_enhancer_bed)
 
     if args.taskType=="prep" or args.taskType=="prepHiC":
