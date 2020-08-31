@@ -14,7 +14,6 @@ def HiCMatch(args, HiCParts, tmp_out, promoter_dna, enhancer_dna, cell, th):
     """
     # HiCParts = prep.HiCParts
     # codeTmpDir = prep.codeTmpDir
-
     numTasks = len(HiCParts)
     tasklist = list(zip(HiCParts,tmp_out))
 
@@ -32,18 +31,15 @@ def HiCMatch(args, HiCParts, tmp_out, promoter_dna, enhancer_dna, cell, th):
     print(".", flush=True)
     return 0
 
-def combine(input_files, hic_out):
-    print(f"saving converted file to {hic_out}..",end=" ",flush=True)
-    pd.concat([pd.read_pickle(inp) for inp in input_files]).to_pickle(hic_out)
-    print(".",flush=True)
-    return 0
-
 
 def transcriptsToGene(gtfFile, hicMatched, hic_out):
     """
-    convert Promoter Transcript IDs in matches from PCHiC file to gene-symbols. 
-    And use these to group Promoters and select a unique promoter per gene-symbol.
-    Note: there may still be multiple gene symbols per interaction region (bait/oe)
+    Convert Promoter Transcript IDs in matches from PCHiC file to gene-symbols. And save output as a pickled pandas DataFrame. The function uses the matching to group Promoters and select a unique promoter per gene-symbol.
+    Note: there may still be multiple gene symbols per interaction region (bait/oe). But the mapping from transcript IDs to gene symbols is a function. Note the assert statement in pt.GroupGeneSymbol
+    input : 
+        gtfFile: the input gtf file from parameters.py
+        hicMatched: output of the function self.HiCMatch
+        hic_out: pickled output path
     """
     pchicDF = pd.read_pickle(hicMatched)
 
@@ -72,6 +68,10 @@ def hicUniqueMatch(hicGroupMatched, hic_out_PE=None, hic_out_EP=None):
     """
     select only those interactions where both the elements (bait promoter & oe enhancer; bait enhancer & oe promoter) 
     have a unique match to gene symbols and enhancer
+    input :  
+        hicGroupMatched: the input file from the previous processing step (processing order in __main__ )
+        hic_out_PE : output for promoter = bait; enhancer = oe
+        hic_out_EP  : output for promoter = oe; enhancer = bait
     """
     pchicDF = pd.read_pickle(hicGroupMatched)
 
@@ -131,7 +131,9 @@ def hicUniqueMatch(hicGroupMatched, hic_out_PE=None, hic_out_EP=None):
 def HiCTrainingPosLabel(hicUniquePE, hicUniqueEP, prwin, enhwin, traindata_out = None):
     """
     select the data from the columns of the training data and put them in appropriate format
-    for input to DeepTACT
+    for input to DeepTACT. The output contains only positive labels.
+        traindata_out: csv output file path
+    if traindata_out is None the output is not saved to a file
     """
     def niceHiCDF(pickle_path, prwin, enhwin, prefixPr, prefixEnh):
         pchicDF = pd.read_pickle(pickle_path)
@@ -192,12 +194,15 @@ def intersectHiCElem(pchicDF, elemMid, chrom, intersectWith = 'bait'):
     intersectedRows =  hicDF[(hicDF[st]<=elemMid) & (elemMid<hicDF[en])]
     return intersectedRows[stOth], intersectedRows[enOth]
 
-
+# function for checking whether there is any element within the range of start and end values
 checkInter =lambda st,en,elem:sum((st<=elem) & (elem<en))>0
 
 def HiCTrainingNegLabel(hicTSV, cell, th, pos_training, promoter_dna, enhancer_dna, prwin, enhwin,hic_out = None, numSamples=None):
     """
     add negative training labels according to histogram of positive training labels
+    ignore those randomly chosen negative elements that have threshold higher than th. 
+    input :
+        th: selection threshold for Hi-C interaction. Above which it is not considered for a negative label. (should be 0)
     """
     # pos_training = prep.HiC_Training('MK')
     # promoter_dna = prep.promoter['dna-out']
@@ -293,7 +298,7 @@ if __name__=="__main__":
     gtfFile = prep.gtf
     HiCParts = prep.HiCParts
     codeTmpDir = prep.codeTmpDir
-    # hicTSV = prep.hicTSV
+    hicTSV = prep.hicTSV
     promoter_dna = prep.promoter['dna-out']
     enhancer_dna = prep.enhancer['dna-out']
     th_pos = 5
@@ -308,21 +313,22 @@ if __name__=="__main__":
     # for cell in ['tB','tCD4','nCD4','FoeT','Mon','tCD8']:
 
     tmp_out = [f"{codeTmpDir}/pchicMatch_{cell}_{i}.pkl" for i in range(len(HiCParts))]
-    HiCMatch(args, HiCParts, tmp_out, promoter_dna, enhancer_dna, cell, th_pos)
+    hic_matched = prep.HiC_Match(cell)
+    hic_grpMatch = prep.HiC_GroupMatch(cell)
+    hic_TrainPE = prep.HiC_UniqueMatchPE(cell)
+    hic_TrainEP = prep.HiC_UniqueMatchEP(cell)
+    hicTrainPos = prep.HiC_TrainingPos(cell)
+    hicTrain = prep.HiC_Training(cell)
 
-    # hic_matched = prep.HiC_Match(cell)
-    # combine(tmp_out, hic_matched)
+    # HiCMatch(args, HiCParts, tmp_out, promoter_dna, enhancer_dna, cell, th_pos)
+    
+    # pt.combine(tmp_out, hic_matched)
 
-    # hic_grpMatch = prep.HiC_GroupMatch(cell)
     # transcriptsToGene(gtfFile, hic_matched, hic_grpMatch)
 
-    # hic_TrainPE = prep.HiC_UniqueMatchPE(cell)
-    # hic_TrainEP = prep.HiC_UniqueMatchEP(cell)
     # hicUniqueMatch(hic_grpMatch, hic_TrainPE, hic_TrainEP)
 
-    # hicTrainPos = prep.HiC_TrainingPos(cell)
     # HiCTrainingPosLabel(hic_TrainPE, hic_TrainEP, prwin, enhwin, traindata_out = hicTrainPos)
     
-    # hicTrain = prep.HiC_Training(cell)
-    # HiCTrainingNegLabel(hicTSV, cell, th_neg, hicTrainPos, promoter_dna, enhancer_dna, prwin, enhwin, hic_out = hicTrain, numSamples=None)
+    HiCTrainingNegLabel(hicTSV, cell, th_neg, hicTrainPos, promoter_dna, enhancer_dna, prwin, enhwin, hic_out = hicTrain, numSamples=None)
 
