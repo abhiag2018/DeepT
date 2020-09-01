@@ -29,9 +29,10 @@ nameDnaseOut = 'DNase' # main name for .npz output for DNase-Seq data
 nameDNAout = 'DNA_Seq' # main name for .npz output for DNA-Sequence data
 
 ## promoter parameters
-promoter['bed-path']=  f"{baseDataDir}/hg19_promoter_TSS.bed"  #main bed file containing element with the appropriate length 1k/2k/..
-promoter['bg-path']= f"{baseDataDir}/hg19_promoter_BG.bed" #bed file defining the background for element with the appropriate length 1MB..
 promoter['tmp-dir']= f"{tmpBaseDir}/tmp_promoter.1" # temporary data directory for promoter
+
+promoter['bed-path']=  f"{promoter['tmp-dir']}/hg19_promoter_TSS.bed"  #main bed file containing element with the appropriate length 1k/2k/..
+promoter['bg-path']= f"{promoter['tmp-dir']}/hg19_promoter_BG.bed" #bed file defining the background for element with the appropriate length 1MB..
 
 promoter['intersect-tasklist'] = f"{promoter['tmp-dir']}/TaskList.npz"  # tasklist for pt.distribute_task(..) function to run 'bedtools intersect'
 promoter['combine-bed-tasklist'] = f"{promoter['tmp-dir']}/CombineBedTasklist.npz"  # tasklist for pt.distribute_task(..) function to combine output of chromosome split 'bedtools intersect' output
@@ -41,13 +42,14 @@ promoter['bg-intersect-out'] =  lambda bam_file: f"""{promoter['tmp-dir']}/{Name
 promoter['intersect-out']=  lambda bam_file,X:f"""{promoter['tmp-dir']}/{NameSys(bam_file,nameIntersectWin,[str(X)]+midBaseName(bam_file),"bed")}""" # bedtools intersect output filepath for intersection of .bam file with element's window .bed file. X : window index
 promoter['dnase-out']=  lambda bam_file:f"""{promoter['tmp-dir']}/{NameSys(bam_file,nameDnaseOut,[],"npz")}""" # DNase-Seq output .npz file
 
-promoter['fa-out']=f"{baseDataDir}/promoter.fa" # fasta file for promoters of length 1k/2k/..
+promoter['fa-out']=f"{promoter['tmp-dir']}/promoter.fa" # fasta file for promoters of length 1k/2k/..
 promoter['dna-out'] = f"{promoter['tmp-dir']}/{nameDNAout}.npz" # DNA-Sequence output .npz file
 
 ## enhancer parameters
-enhancer['bed-path']= f"{baseDataDir}/enhancers_fantom5/human_enhancers_window.bed"
-enhancer['bg-path']= f"{baseDataDir}/hg19_enhancer_BG.bed"
 enhancer['tmp-dir']= f"{tmpBaseDir}/tmp_enhancer.1"
+
+enhancer['bed-path']= f"{enhancer['tmp-dir']}/human_enhancers_window.bed"
+enhancer['bg-path']= f"{enhancer['tmp-dir']}/hg19_enhancer_BG.bed"
 
 enhancer['intersect-tasklist'] = f"{enhancer['tmp-dir']}/TaskList.npz"
 enhancer['combine-bed-tasklist'] = f"{enhancer['tmp-dir']}/CombineBedTasklist.npz"
@@ -57,7 +59,7 @@ enhancer['bg-intersect-out'] =  lambda bam_file: f"""{enhancer['tmp-dir']}/{Name
 enhancer['intersect-out']=  lambda bam_file,X:f"""{enhancer['tmp-dir']}/{NameSys(bam_file,nameIntersectWin,[str(X)]+midBaseName(bam_file),"bed")}"""
 enhancer['dnase-out']=  lambda bam_file:f"""{enhancer['tmp-dir']}/{NameSys(bam_file,nameDnaseOut,[],"npz")}"""
 
-enhancer['fa-out']=f"{baseDataDir}/enhancer.fa"
+enhancer['fa-out']=f"{enhancer['tmp-dir']}/enhancer.fa"
 enhancer['dna-out'] = f"{enhancer['tmp-dir']}/{nameDNAout}.npz"
 
 
@@ -76,7 +78,7 @@ HiC_UniqueMatchEP = lambda cell:f"{tmpBaseDir}/pchicUniqueMatchEP_{cell}.pkl"
 HiC_TrainingPos = lambda cell:f"{tmpBaseDir}/pchicTrainingPos_{cell}.csv"
 HiC_Training = lambda cell:f"{tmpBaseDir}/pchicTraining_{cell}.csv"
 
-HiCParts = [f"{baseDataDir}/pchic_{i}.csv" for i in range(10)]
+HiCParts = [f"{tmpBaseDir}/pchic_{i}.csv" for i in range(10)]
 
 def elem_preprocessing(elem, bg_window, func):
     """ 
