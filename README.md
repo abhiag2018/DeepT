@@ -6,7 +6,7 @@
 - Pre-process **DNase-Seq** data : `process_Dnase.py`
 - Pre-process **PCHiC** data : `process_PCHiC.py`
 
-# Pre-Processing Script 
+# Pre-Processing with SLURM
 
 
 1. Create pre-processing directories. Generate main and background .bed files for promoters and enhancers : `scriptMain.sh prep`
