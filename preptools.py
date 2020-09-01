@@ -127,10 +127,12 @@ def fasta_to_onehot(fastaf,maxlines=None,outp=None):
                 pr_onehot[num_prom-1] = enc.transform(_seq).toarray()
                 pr_seq[num_prom-1] = seq
     if outp:
-        assert pr_onehot.shape[1]==1000 or pr_onehot.shape[1]==2000
-        assert pr_onehot.shape[2]==4
+        # assert pr_onehot.shape[1]==1200 or pr_onehot.shape[1]==2200
+        # assert pr_onehot.shape[2]==4
 
         np.savez(outp,sequence=pr_onehot.reshape(pr_onehot.shape[0],pr_onehot.shape[1]*pr_onehot.shape[2]),name=pr_name,loc=pr_loc)
+        # np.load(outp, allow_pickle=True)
+
     return pr_name,pr_loc,pr_seq,pr_onehot
 
 def prep_fasta(chrom=list(range(1,23))+list('XY'),path_lambda=lambda x:f"{x}.fa"):
