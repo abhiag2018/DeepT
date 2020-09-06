@@ -1,20 +1,10 @@
 #!/bin/bash
 
 
-optionsPrep1=('prep' 'prepPr' 'prepEnh' 'prepHiC')
-optionsPrep2=('splitBam')
-optionsPrep=("${optionsPrep1[@]}" "${optionsPrep2[@]}")
+optionsPrep=('prep' 'prepBam' 'prepPr' 'prepEnh' 'prepHiC')
 
-optionsProc1=('Win' 'TaskList' 'Intersect' 'cTaskList' 'Combine' 'PostProcess')
-optionsProc2=('' 'p' 'e')
-optionsProc=()
-for _t in ${optionsProc1[@]}
-do
-	for t in ${optionsProc2[@]}
-	do
-		optionsProc+=(${t}${_t})
-	done
-done
+optionsDNase=('DNase' 'genIndex' 'bamToArray' 'pgenProfile' 'egenProfile')
+numArrayDNase=(30 700 30 30)
 
 optionsDNA=('DNA' 'pDNA' 'eDNA')
 
@@ -22,7 +12,7 @@ optionsPCHiC=('hicMatch','hicLabels')
 cellList=('tB' 'tCD4' 'nCD4' 'FoeT' 'Mon' 'tCD8')
 
 
-options=("${optionsPrep[@]}" "${optionsProc[@]}" "${optionsDNA[@]}" "${optionsPCHiC[@]}")
+options=("${optionsPrep[@]}" "${optionsDNase[@]}" "${optionsDNA[@]}" "${optionsPCHiC[@]}")
 
 helpFunction()
 {
@@ -47,33 +37,57 @@ else
 fi
 
 
+if [[ ${optionsDNase[@]:1} == *$option* && $# -lt 2 ]]; then
+	tmp=("${optionsDNase[@]:1}")
+	for i in "${!tmp[@]}"; do
+	   if [[ "${tmp[$i]}" = "${option}" ]]; then
+		   	sbatchopt="-a 0-${numArrayDNase[$i]} "
+	   fi
+	done
+fi
 
-if [[ ${optionsPrep1[0]} == *$option* ]]; then
-	for opt in ${optionsPrep1[@]:1}
+
+if [[ ${optionsPrep[0]} == *$option* ]]; then
+	for opt in ${optionsPrep[@]:1}
 	do
 		sbatch -J ${opt} ${sbatchopt}scriptDT.sh ${opt}
 	done
-elif [[ ${optionsPrep2[0]} == *$option* ]]; then
+elif [[ ${optionsPrep[@]:1} == *$option* ]]; then
 	sbatch -J ${option} ${sbatchopt}scriptDT.sh ${option}
-elif [[ ${optionsProc1[@]} == *$option* ]]; then
-	for _t in ${optionsProc2[@]:1}
-	do
-		opt=(${_t}${option})
-		sbatch -J ${opt} ${sbatchopt}scriptDT.sh ${opt}
+elif [[ ${optionsDNase[0]} == *$option* ]]; then
+	tmp=("${optionsDNase[@]:1}")
+	for i in "${!tmp[@]}"; do
+	   	sbatchopt="-a 0-${numArrayDNase[$i]} "
+		sbatch -J ${tmp[$i]} ${sbatchopt}scriptDT.sh ${tmp[$i]}
 	done
+elif [[ ${optionsDNase[@]:1} == *$option* ]]; then
+	# echo "sbatch -J ${option} ${sbatchopt}scriptDT.sh ${option}"
+	sbatch -J ${option} ${sbatchopt}scriptDT.sh ${option}
 elif [[ ${optionsDNA[0]} == *$option* ]]; then
 	for opt in ${optionsDNA[@]:1}
 	do
 		sbatch -J ${opt} ${sbatchopt}scriptDT.sh ${opt}
 	done
+elif [[ ${optionsDNA[@]:1} == *$option* ]]; then
+	sbatch -J ${option} ${sbatchopt}scriptDT.sh ${option}
 elif [[ ${optionsPCHiC[@]} == *$option* ]]; then
 	for cell in ${cellList[@]}
 	do
 		sbatch -J ${option} ${sbatchopt}scriptDT.sh ${option} ${cell}
 	done
+else
+	sbatch -J ${option} ${sbatchopt}scriptDT.sh ${option}
 fi
 
 
+
+
+# scriptMain.sh prep
+# scriptMain.sh DNase
+# scriptMain.sh DNA
+
+
+# scriptMain.sh hicLabels 30
 
 
 

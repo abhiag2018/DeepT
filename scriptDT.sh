@@ -10,22 +10,15 @@
 
 num_tasks=$SLURM_ARRAY_TASK_COUNT
 
-optionsPrep=('splitBam' 'prep' 'prepPr' 'prepEnh' 'prepHiC')
+optionsPrep=('prepBam' 'prepPr' 'prepEnh' 'prepHiC')
 
-optionsProc=()
-for _t in 'Win' 'TaskList' 'Intersect' 'cTaskList' 'Combine' 'PostProcess'
-do
-	for t in '' 'p' 'e'
-	do
-		optionsProc+=(${t}${_t})
-	done
-done
+optionsDNase=('genIndex' 'bamToArray' 'pgenProfile' 'egenProfile')
 
-optionsDNA=('DNA' 'pDNA' 'eDNA')
+optionsDNA=('pDNA' 'eDNA' 'selectDNA')
 
-optionsPCHiC=('Convert')
+optionsPCHiC=('hicMatch' 'hicLabels')
 
-options=("${optionsPrep[@]}" "${optionsProc[@]}" "${optionsDNA[@]}" "${optionsPCHiC[@]}")
+options=("${optionsPrep[@]}" "${optionsDNase[@]}" "${optionsDNA[@]}" "${optionsPCHiC[@]}")
 # echo ${options[@]}
 # echo ${#options[@]}
 
@@ -59,12 +52,13 @@ fi
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate cube
 
-# python process_PCHiC.py
-# python download_DNase.py
-
 if [[ ${optionsPrep[@]} == *$option* ]]; then
     echo  "run preprocessing.py"
     python preprocessing.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID
+elif [[ ${optionsDNA[2]} == *$option* ]]; then
+	echo  "run process_fasta.py"
+	cellType=$2
+	python process_fasta.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID --cellType=$cellType
 elif [[ ${optionsDNA[@]} == *$option* ]]; then
 	echo  "run process_fasta.py"
 	python process_fasta.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID	
@@ -78,44 +72,42 @@ else
 fi
 
 
+# sbatch -J prepBam scriptDT.sh prepBam
 # sbatch -J prepPr scriptDT.sh prepPr
 # sbatch -J prepEnh scriptDT.sh prepEnh
 # sbatch -J prepHiC scriptDT.sh prepHiC
-# sbatch -J splitBam -a 0-300 scriptDT.sh splitBam
-# sbatch -J pWin -a 0-300 scriptDT.sh pWin
-# sbatch -J eWin -a 0-300 scriptDT.sh eWin
+# # sbatch -J splitBam -a 0-30 scriptDT.sh splitBam
 
-# sbatch -J pTaskList scriptDT.sh pTaskList
-# sbatch -J eTaskList scriptDT.sh eTaskList
-# sbatch -J pIntersect -a 0-300 scriptDT.sh pIntersect
-# sbatch -J eIntersect -a 0-300 scriptDT.sh eIntersect
-
-# sbatch -J pcTaskList scriptDT.sh pcTaskList
-# sbatch -J ecTaskList scriptDT.sh ecTaskList
-
-# sbatch -J pCombine -a 0-300 scriptDT.sh pCombine
-# sbatch -J eCombine -a 0-300 scriptDT.sh eCombine
-# sbatch -J pPostProcess -a 0-30 scriptDT.sh pPostProcess
-# sbatch -J ePostProcess -a 0-30 scriptDT.sh ePostProcess
-
-
-###
+# sbatch -J genIndex -a 0-30 scriptDT.sh genIndex
+# sbatch -J bamToArray -a 0-700 scriptDT.sh bamToArray
+# sbatch -J pgenProfile -a 0-30 scriptDT.sh pgenProfile
+# sbatch -J egenProfile -a 0-30 scriptDT.sh egenProfile
 
 # sbatch -J pDNA scriptDT.sh pDNA
 # sbatch -J eDNA scriptDT.sh eDNA
-
+# sbatch -J selectDNA scriptDT.sh selectDNA tB
+# sbatch -J selectDNA scriptDT.sh selectDNA tCD4
+# sbatch -J selectDNA scriptDT.sh selectDNA nCD4
+# sbatch -J selectDNA scriptDT.sh selectDNA FoeT
+# sbatch -J selectDNA scriptDT.sh selectDNA Mon
+# sbatch -J selectDNA scriptDT.sh selectDNA tCD8
 
 
 ###
 
-# sbatch -J Convert -a 0-13  scriptDT.sh Convert tB
-# sbatch -J Convert -a 0-13  scriptDT.sh Convert tCD4
-# sbatch -J Convert -a 0-13  scriptDT.sh Convert nCD4
-# sbatch -J Convert -a 0-13  scriptDT.sh Convert FoeT
-# sbatch -J Convert -a 0-13  scriptDT.sh Convert Mon
-# sbatch -J Convert -a 0-13  scriptDT.sh Convert tCD8
+# sbatch -J hicMatch -a 0-13  scriptDT.sh hicMatch tB
+# sbatch -J hicMatch -a 0-13  scriptDT.sh hicMatch tCD4
+# sbatch -J hicMatch -a 0-13  scriptDT.sh hicMatch nCD4
+# sbatch -J hicMatch -a 0-13  scriptDT.sh hicMatch FoeT
+# sbatch -J hicMatch -a 0-13  scriptDT.sh hicMatch Mon
+# sbatch -J hicMatch -a 0-13  scriptDT.sh hicMatch tCD8
 
-# sbatch -J Convert scriptDT.sh Convert
+# sbatch -J hicLabels scriptDT.sh hicLabels tB
+# sbatch -J hicLabels scriptDT.sh hicLabels tCD4
+# sbatch -J hicLabels scriptDT.sh hicLabels nCD4
+# sbatch -J hicLabels scriptDT.sh hicLabels FoeT
+# sbatch -J hicLabels scriptDT.sh hicLabels Mon
+# sbatch -J hicLabels scriptDT.sh hicLabels tCD8
 
 
 

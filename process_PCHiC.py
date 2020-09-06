@@ -1,4 +1,4 @@
-import sys
+import sys, itertools
 import numpy as np
 import argparse
 import gtfparse
@@ -7,8 +7,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import random
 
+SUBSAMPLE = None
 
-def HiCMatch(args, HiCParts, tmp_out, promoter_dna, enhancer_dna, cell, th):
+def HiCMatch(args, HiCParts, tmp_out, promoter_dna, enhancer_dna, cell, th, sampleFrac = SUBSAMPLE):
     """
     wrapper for matching PCHiC data in tsv file to promoter and enhancer lists
     """
@@ -20,7 +21,7 @@ def HiCMatch(args, HiCParts, tmp_out, promoter_dna, enhancer_dna, cell, th):
     def match_pcHiC(task):
         hicTSV = task[0]
         outpkl = task[1]
-        pt.concat_PCHiC_PE(hicTSV,promoter_dna,enhancer_dna, selectCell=cell, threshold = th, outputF=outpkl, sampleFrac=None)
+        pt.concat_PCHiC_PE(hicTSV,promoter_dna, enhancer_dna, selectCell=cell, threshold = th, outputF=outpkl, sampleFrac=sampleFrac)
 
     args.nTasks = min(args.nTasks,numTasks)
     print(f"matching PCHiC Data to promoter & enhancers (file_index = {args.file_index})..", end=" ", flush=True)
@@ -154,7 +155,7 @@ def HiCTrainingPosLabel(hicUniquePE, hicUniqueEP, prwin, enhwin, traindata_out =
         train_out['promoter_chrom'] = pchicDF[prefixPr+'Chr']
         train_out['promoter_start'] = pchicDF[prefixPr+'Pr'].apply(lambda x:int(x[1])-prwin//2)
         train_out['promoter_end'] = pchicDF[prefixPr+'Pr'].apply(lambda x:int(x[1])+prwin//2)
-        train_out['promoter_name'] = pchicDF[prefixPr+'Pr'].apply(lambda x:x[0])
+        train_out['promoter_name'] = pchicDF[prefixPr+'Pr'].apply(lambda x:x[2]+":"+x[0])
 
         train_out['label'] = 1
         return pd.DataFrame(train_out)
@@ -256,12 +257,12 @@ def HiCTrainingNegLabel(hicTSV, cell, th, pos_training, promoter_dna, enhancer_d
         while checkInter(_st1,_en1,enhancer[0]) or checkInter(_st2,_en2,enhancer[0]):
             print(".",end="",flush=True)
             enhancer = np.random.choice(enhMid,p=p)
-        print(" .",flush=True)
 
-        chroms.append(chrom)
+        chroms.append('chr'+chrom)
         promoters.append(promoter)
         enhancers.append(enhancer)
 
+    print(f"generated {numSamples} negative samples.",flush=True)
 
     prMids = pd.Series(np.array(promoters)[:,0]).apply(int).to_numpy()
     prNames = np.array(promoters)[:,1]
@@ -281,17 +282,74 @@ def HiCTrainingNegLabel(hicTSV, cell, th, pos_training, promoter_dna, enhancer_d
         print(".",flush=True)
     return Data
 
+def SelectElements_in_TrainingData(cell_trainData, bam_dir, all_prList, all_enhList):
+
+    trainData = pd.read_csv(cell_trainData)
+    train_promoters = trainData['promoter_name'].apply(lambda x:x.split(":")[0])
+    train_enhancers = trainData['enhancer_name']
+
+    tfunc = lambda x: pd.Series([x.split(':')[0]]+list(map(int, x.split(':')[1].split('-'))))
+    all_enh_DF = all_enhList.apply(tfunc).rename(columns={0:'chr',1:'st',2:'en'})
+
+
+    # make sure you for each promoter in training data you find unique match in promoter list
+    Count_Matched_Promoters = lambda x:sum(all_prList==x)
+    assert len(train_promoters) == sum(train_promoters.apply(Count_Matched_Promoters))
+    assert len(train_promoters) == sum(train_promoters.apply(Count_Matched_Promoters)>=1)
+
+    # make sure you for each enhancer in training data you find unique match in enhancer list
+    trainenhMid = train_enhancers.apply(lambda x:sum(map(int,x.split(':')[1].split('-')))//2)
+    trainenhChr = train_enhancers.apply(lambda x:x.split(':')[0])
+    train_enh_DF = pd.DataFrame({'mid':trainenhMid,'chr':trainenhChr})
+    count_match =  train_enh_DF.apply(lambda x: sum((all_enh_DF['st']<x['mid']) & (x['mid']<=all_enh_DF['en']) & (x['chr']==all_enh_DF['chr'])),axis=1)
+    assert len(train_enhancers) == sum(count_match>=1)
+    assert len(train_enhancers) == sum(count_match)
+
+
+    # select the DNase data for promoter corresponding to the Training Data
+    dnase_promoter = np.load(f"{bam_dir}/promoter.npz",allow_pickle=True)['expr']
+    dnase_enhancer = np.load(f"{bam_dir}/enhancer.npz",allow_pickle=True)['expr']
+
+    dnase_pr_train = train_promoters.apply(lambda x: dnase_promoter[all_prList==x][0])
+
+    dnase_enh_train =  train_enh_DF.apply(lambda x: dnase_enhancer[(all_enh_DF['st']<=x['mid']) & (x['mid']<=all_enh_DF['en']) & (x['chr']==all_enh_DF['chr'])][0],axis=1)
+
+    np.savez(f"{bam_dir}/promoterTrain.npz",expr=np.array(dnase_pr_train.tolist()))
+    np.savez(f"{bam_dir}/enhancerTrain.npz",expr=np.array(dnase_enh_train.tolist()))
+
+    # np.load(f"{dirDNase}/enhancerTrain.npz", allow_pickle=True)['expr']
+    return 0
+
+def SelectElements(args, cell_trainData, bamfiles_cell, dnaseTmpDir, all_prList, all_enhList):
+    # cell_trainData = prep.HiC_Training(cell)
+    # bamfiles_cell = list(itertools.chain.from_iterable(prep.DnaseCells[cell]))
+    # dnaseTmpDir = prep.dnaseTmpDir
+    # all_prList = pd.read_csv(prep.promoter['bed-path'], delimiter='\t', names=prep.promoter['headers']).name
+    # all_enhList = pd.read_csv(prep.enhancer['bed-path'], delimiter='\t', names=prep.enhancer['headers']).name
+
+    tasklist = [dnaseTmpDir(bamf) for bamf in bamfiles_cell]
+    objfunc = lambda t:SelectElements_in_TrainingData(cell_trainData, t, all_prList, all_enhList)
+
+    args.nTasks = min(args.nTasks,len(tasklist))
+
+    print(f"selecting promoter & enhancers from PCHi-C training data for: {args.file_index}/{args.nTasks}..", end=" ", flush=True)
+    pt.distribute_task(task_list = tasklist, 
+        nTasks = int(args.nTasks), file_index=int(args.file_index), 
+        func=objfunc, num_tasks=len(tasklist),
+        dry_run=False)
+    print(".", flush=True)
+
+    return 0
+
+
 if __name__=="__main__":
     import preprocessing as prep
 
-    argType = {'file_index':(int,'index of task to execute'), 
-        'nTasks':(int,'total number of tasks'), 
-        'taskType':(str,'total number of tasks'),
-        'cellType':(str,"cell type in ['tB','tCD4','nCD4','FoeT','Mon','tCD8']")} 
+    argType = {'file_index':None, 'nTasks':None, 'taskType':None , 'cellType': None} 
     args = pt.process_inputArgs(input_parse=sys.argv[1:], argType=argType)
     # args = pt.process_inputArgs(input_parse=['--file_index','0','--nTasks','52','--taskType','pWin'])
 
-    taskTypes = ["Convert"]
+    taskTypes = ["hicMatch", "hicLabels"]
     # taskTypes = [t+_t for t in ['','p','e'] for _t in _taskTypes]
     assert args.taskType in taskTypes
 
@@ -299,15 +357,16 @@ if __name__=="__main__":
     HiCParts = prep.HiCParts
     codeTmpDir = prep.codeTmpDir
     hicTSV = prep.hicTSV
-    promoter_dna = prep.promoter['dna-out']
     enhancer_dna = prep.enhancer['dna-out']
+    enhancer_bed = prep.enhancer['bed-path']
+    enhancer_bed_bg = prep.enhancer['bg-path']
+    promoter_dna = prep.promoter['dna-out']
+    promoter_bed = prep.promoter['bed-path']
+    promoter_bed_bg = prep.promoter['bg-path']
     th_pos = 5
     th_neg = 0
 
-
-    prwin = prep.promoter['window']
-    enhwin =  prep.enhancer['window']
-    numSamples = 100
+    numSamples = None
 
     cell = args.cellType
     # for cell in ['tB','tCD4','nCD4','FoeT','Mon','tCD8']:
@@ -320,15 +379,33 @@ if __name__=="__main__":
     hicTrainPos = prep.HiC_TrainingPos(cell)
     hicTrain = prep.HiC_Training(cell)
 
-    # HiCMatch(args, HiCParts, tmp_out, promoter_dna, enhancer_dna, cell, th_pos)
+
+
+    if args.taskType=="hicMatch":
+        HiCMatch(args, HiCParts, tmp_out, promoter_dna, enhancer_dna, cell, th_pos)
+
+    if args.taskType=="hicLabels":
+        # pt.combine(tmp_out, hic_matched)
+
+        # transcriptsToGene(gtfFile, hic_matched, hic_grpMatch)
+
+        # hicUniqueMatch(hic_grpMatch, hic_TrainPE, hic_TrainEP)
+
+        # HiCTrainingPosLabel(hic_TrainPE, hic_TrainEP, prep.promoter['window'], prep.enhancer['window'], traindata_out = hicTrainPos)
     
-    # pt.combine(tmp_out, hic_matched)
+        # HiCTrainingNegLabel(hicTSV, cell, th_neg, hicTrainPos, promoter_dna, enhancer_dna, prep.promoter['window'], prep.enhancer['window'], hic_out = hicTrain, numSamples=numSamples)
 
-    # transcriptsToGene(gtfFile, hic_matched, hic_grpMatch)
+        bamfiles_cell = list(itertools.chain.from_iterable(prep.DnaseCells[cell]))
+        all_prList = pd.read_csv(prep.promoter['bed-path'], delimiter='\t', names=prep.promoter['headers']).name
+        all_enhList = pd.read_csv(prep.enhancer['bed-path'], delimiter='\t', names=prep.enhancer['headers']).name
+        SelectElements(args, prep.HiC_Training(cell), bamfiles_cell, prep.dnaseTmpDir, all_prList, all_enhList)
 
-    # hicUniqueMatch(hic_grpMatch, hic_TrainPE, hic_TrainEP)
 
-    # HiCTrainingPosLabel(hic_TrainPE, hic_TrainEP, prwin, enhwin, traindata_out = hicTrainPos)
-    
-    HiCTrainingNegLabel(hicTSV, cell, th_neg, hicTrainPos, promoter_dna, enhancer_dna, prwin, enhwin, hic_out = hicTrain, numSamples=None)
+
+
+
+
+
+
+
 

@@ -15,6 +15,8 @@ from sklearn.preprocessing import OneHotEncoder
 from numba import jit, prange   
 import copy
 import gtfparse
+import deeptools.countReadsPerBin as crpb
+import scipy.signal as sg
 
 
 MAXATTEMPTS = 3
@@ -131,7 +133,7 @@ def fasta_to_onehot(fastaf,maxlines=None,outp=None):
         # assert pr_onehot.shape[2]==4
 
         np.savez(outp,sequence=pr_onehot.reshape(pr_onehot.shape[0],pr_onehot.shape[1]*pr_onehot.shape[2]),name=pr_name,loc=pr_loc)
-        # np.load(outp, allow_pickle=True)
+        # np.load(outp, allow_pickle=True)['sequence']
 
     return pr_name,pr_loc,pr_seq,pr_onehot
 
@@ -437,6 +439,19 @@ def combine(input_files, hic_out):
     print(".",flush=True)
     return 0
 
+def getBamCounts(bam_file, chrom, chromLen, outputf = None):
+    """
+    read a bam file and return the readCounts for position - chrom:0-chromLen
+    inputs: 
+        chrom : chromosome to read
+        chromLen : scalar int
+    """
+    cr = crpb.CountReadsPerBin([bam_file], binLength=1, stepSize=1)
+    arr = cr.count_reads_in_region(chrom, 0, chromLen)[0]
+    if outputf:
+        np.savez(outputf, count=arr)
+        # np.load(outputf,allow_pickle=True)['count']
+    return arr
 
 def post_process(bg_intersect_out, bg_win, Head, intersect_out, out_dim, out_path):
     """
@@ -466,13 +481,25 @@ def post_process(bg_intersect_out, bg_win, Head, intersect_out, out_dim, out_pat
     np.savez(out_path,expr=Dnase_data)
     return out_path
 
-def process_inputArgs(input_parse=sys.argv, argType = {'file_index':(int,'index of task to execute'), 'nTasks':(int,'total number of tasks'), 'taskType':(str,'total number of tasks') } ):
+def process_inputArgs(input_parse=sys.argv, argType = {'file_index':None, 'nTasks':None, 'taskType':None } ):
+
+    if 'file_index' in argType.keys() and argType['file_index'] is None:
+        argType['file_index'] = {'type':int,  'help':'index of task to execute'}
+
+    if 'nTasks' in argType.keys() and argType['nTasks'] is None:
+        argType['nTasks'] = {'type':int, 'help':'total number of tasks'}
+
+    if 'taskType' in argType.keys() and argType['taskType'] is None:
+        argType['taskType'] = {'type':str, 'help':'total number of tasks'}
+
+    if 'cellType' in argType.keys() and argType['cellType'] is None:
+        argType['cellType'] = {'type':str, 'help':"cell type in ['tB','tCD4','nCD4','FoeT','Mon','tCD8']"}
+
+
     parser = argparse.ArgumentParser()
     for t in argType:
-        parser.add_argument(f"--{t}", help=argType[t][1],type=argType[t][0])
-    # parser.add_argument('--file_index', help='index of task to execute',type=int)
-    # parser.add_argument('--nTasks', help='total number of tasks',type=int)
-    # parser.add_argument('--taskType', help='total number of tasks',type=str)
+        parser.add_argument(f"--{t}", **argType[t])
+
     args = parser.parse_args(input_parse)
 
     if args.file_index and args.file_index>args.nTasks:
