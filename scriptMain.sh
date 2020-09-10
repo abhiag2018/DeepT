@@ -1,12 +1,12 @@
 #!/bin/bash
 
 
-optionsPrep=('prep' 'prepBam' 'prepPr' 'prepEnh' 'prepHiC')
+optionsPrep=('splitBam' 'prepBam' 'prepPr' 'prepEnh' 'prepHiC')
 
-optionsDNase=('DNase' 'genIndex' 'bamToArray' 'pgenProfile' 'egenProfile')
+optionsDNase=('genIndex' 'bamToArray' 'pgenProfile' 'egenProfile')
 numArrayDNase=(30 700 30 30)
 
-optionsDNA=('DNA' 'pDNA' 'eDNA')
+optionsDNA=('pDNA' 'eDNA')
 
 optionsPCHiC=('hicMatch','hicLabels')
 cellList=('tB' 'tCD4' 'nCD4' 'FoeT' 'Mon' 'tCD8')
@@ -37,57 +37,54 @@ else
 fi
 
 
-if [[ ${optionsDNase[@]:1} == *$option* && $# -lt 2 ]]; then
-	tmp=("${optionsDNase[@]:1}")
-	for i in "${!tmp[@]}"; do
-	   if [[ "${tmp[$i]}" = "${option}" ]]; then
+if [[ ${optionsDNase[@]} == *$option* && $# -lt 2 ]]; then
+	for i in "${!optionsDNase[@]}"; do
+	   if [[ "${optionsDNase[$i]}" = "${option}" ]]; then
 		   	sbatchopt="-a 0-${numArrayDNase[$i]} "
 	   fi
 	done
 fi
 
 
-if [[ ${optionsPrep[0]} == *$option* ]]; then
-	for opt in ${optionsPrep[@]:1}
-	do
-		sbatch -J ${opt} ${sbatchopt}scriptDT.sh ${opt}
-	done
-elif [[ ${optionsPrep[@]:1} == *$option* ]]; then
+if [[ ${optionsPrep[@]} == *$option* ]]; then
 	sbatch -J ${option} ${sbatchopt}scriptDT.sh ${option}
-elif [[ ${optionsDNase[0]} == *$option* ]]; then
-	tmp=("${optionsDNase[@]:1}")
-	for i in "${!tmp[@]}"; do
-	   	sbatchopt="-a 0-${numArrayDNase[$i]} "
-		sbatch -J ${tmp[$i]} ${sbatchopt}scriptDT.sh ${tmp[$i]}
-	done
 elif [[ ${optionsDNase[@]:1} == *$option* ]]; then
-	# echo "sbatch -J ${option} ${sbatchopt}scriptDT.sh ${option}"
 	sbatch -J ${option} ${sbatchopt}scriptDT.sh ${option}
-elif [[ ${optionsDNA[0]} == *$option* ]]; then
-	for opt in ${optionsDNA[@]:1}
-	do
-		sbatch -J ${opt} ${sbatchopt}scriptDT.sh ${opt}
-	done
-elif [[ ${optionsDNA[@]:1} == *$option* ]]; then
+elif [[ ${optionsDNA[@]} == *$option* ]]; then
 	sbatch -J ${option} ${sbatchopt}scriptDT.sh ${option}
 elif [[ ${optionsPCHiC[@]} == *$option* ]]; then
 	for cell in ${cellList[@]}
 	do
 		sbatch -J ${option} ${sbatchopt}scriptDT.sh ${option} ${cell}
 	done
-else
-	sbatch -J ${option} ${sbatchopt}scriptDT.sh ${option}
 fi
 
 
 
+## preprocessing
+# scriptMain.sh splitBam
+# scriptMain.sh prepBam
+# scriptMain.sh prepPr
+# scriptMain.sh prepEnh
+# scriptMain.sh prepHiC
 
-# scriptMain.sh prep
-# scriptMain.sh DNase
-# scriptMain.sh DNA
+## DNA
+# scriptMain.sh pDNA
+# scriptMain.sh eDNA
+
+## DNase
+# scriptMain.sh genIndex
+# scriptMain.sh bamToArray
+# scriptMain.sh pgenProfile
+# scriptMain.sh egenProfile
 
 
-# scriptMain.sh hicLabels 30
+## Training Data
+# scriptMain.sh hicMatch 13 : 21 min
+# scriptMain.sh hicLabels
+
+
+## 
 
 
 

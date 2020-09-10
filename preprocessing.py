@@ -44,6 +44,9 @@ HiC_UniqueMatchEP = lambda cell:f"{tmpBaseDir_hic}/pchicUniqueMatchEP_{cell}.pkl
 HiC_TrainingPos = lambda cell:f"{tmpBaseDir_hic}/pchicTrainingPos_{cell}.csv"
 HiC_Training = lambda cell:f"{tmpBaseDir_hic}/pchicTraining_{cell}.csv"
 
+hictrain = lambda cell:f"{tmpBaseDir_hic}/{cell}/P-E/pairs_train.csv"
+hictrain_augment = lambda cell:f"{tmpBaseDir_hic}/{cell}/P-E/pairs_train_augment.csv"
+
 HiCParts = [f"{tmpBaseDir_hic}/pchic_{i}.csv" for i in range(10)]
 
 def elem_preprocessing(elem, bg_window, func):
@@ -54,7 +57,7 @@ def elem_preprocessing(elem, bg_window, func):
     """
     bed_path = elem['bed-path']
     headers = elem['headers']
-    window = elem['window']
+    window = elem['ext-window']
 
     bg_path = elem['bg-path']
     allfield_bed = elem['allfield-bed']

@@ -282,61 +282,95 @@ def HiCTrainingNegLabel(hicTSV, cell, th, pos_training, promoter_dna, enhancer_d
         print(".",flush=True)
     return Data
 
-def SelectElements_in_TrainingData(cell_trainData, bam_dir, all_prList, all_enhList):
+def train_augment(cell_traindata, cell_train_aug, aug_len_enh, aug_len_pr, aug_step_enh, aug_step_pr, enh_length, pr_length, mult_fac = 20):
+    """
+    augment training data csv
+    """
+    # cell_traindata = prep.hictrain(cell)
+    # cell_train_aug = prep.hictrain_augment(cell)
+    # aug_len_enh = prep.enhancer['augment_len']
+    # aug_len_pr = prep.promoter['augment_len']
+    # aug_step_enh = prep.enhancer['aug_step']
+    # aug_step_pr = prep.promoter['aug_step']
 
-    trainData = pd.read_csv(cell_trainData)
-    train_promoters = trainData['promoter_name'].apply(lambda x:x.split(":")[0])
-    train_enhancers = trainData['enhancer_name']
+    # enh_length = prep.enhancer['window']
+    # pr_length = prep.promoter['window']
 
-    tfunc = lambda x: pd.Series([x.split(':')[0]]+list(map(int, x.split(':')[1].split('-'))))
-    all_enh_DF = all_enhList.apply(tfunc).rename(columns={0:'chr',1:'st',2:'en'})
+    def genDF(index,row):
+        enh_shifts = random.choices(np.arange(0,aug_len_enh,aug_step_enh),k=mult_fac)
+        pr_shifts = random.choices(np.arange(0,aug_len_pr,aug_step_pr),k=mult_fac)
 
+        return pd.DataFrame(
+            {'enhancer_chrom': row.enhancer_chrom,
+            'enhancer_start': [row.enhancer_start+x for x in enh_shifts],
+            'enhancer_end': [row.enhancer_start+enh_length+x for x in enh_shifts],
+            'enhancer_name': row.enhancer_name,
+            'promoter_chrom': row.promoter_chrom,
+            'promoter_start': [row.promoter_start+x for x in pr_shifts],
+            'promoter_end': [row.promoter_start+pr_length+x for x in pr_shifts],
+            'promoter_name': row.promoter_name,
+            'label': row.label,
+            'enh_base_start': row.enhancer_start,
+            'pr_base_start': row.promoter_start
+            })
 
-    # make sure you for each promoter in training data you find unique match in promoter list
-    Count_Matched_Promoters = lambda x:sum(all_prList==x)
-    assert len(train_promoters) == sum(train_promoters.apply(Count_Matched_Promoters))
-    assert len(train_promoters) == sum(train_promoters.apply(Count_Matched_Promoters)>=1)
+    random.seed(42)
+    train_data = pd.read_csv(cell_traindata)
 
-    # make sure you for each enhancer in training data you find unique match in enhancer list
-    trainenhMid = train_enhancers.apply(lambda x:sum(map(int,x.split(':')[1].split('-')))//2)
-    trainenhChr = train_enhancers.apply(lambda x:x.split(':')[0])
-    train_enh_DF = pd.DataFrame({'mid':trainenhMid,'chr':trainenhChr})
-    count_match =  train_enh_DF.apply(lambda x: sum((all_enh_DF['st']<x['mid']) & (x['mid']<=all_enh_DF['en']) & (x['chr']==all_enh_DF['chr'])),axis=1)
-    assert len(train_enhancers) == sum(count_match>=1)
-    assert len(train_enhancers) == sum(count_match)
-
-
-    # select the DNase data for promoter corresponding to the Training Data
-    dnase_promoter = np.load(f"{bam_dir}/promoter.npz",allow_pickle=True)['expr']
-    dnase_enhancer = np.load(f"{bam_dir}/enhancer.npz",allow_pickle=True)['expr']
-
-    dnase_pr_train = train_promoters.apply(lambda x: dnase_promoter[all_prList==x][0])
-
-    dnase_enh_train =  train_enh_DF.apply(lambda x: dnase_enhancer[(all_enh_DF['st']<=x['mid']) & (x['mid']<=all_enh_DF['en']) & (x['chr']==all_enh_DF['chr'])][0],axis=1)
-
-    np.savez(f"{bam_dir}/promoterTrain.npz",expr=np.array(dnase_pr_train.tolist()))
-    np.savez(f"{bam_dir}/enhancerTrain.npz",expr=np.array(dnase_enh_train.tolist()))
-
-    # np.load(f"{dirDNase}/enhancerTrain.npz", allow_pickle=True)['expr']
+    train_augDF = pd.concat(map(lambda x:genDF(*x), train_data.iterrows()), ignore_index=True)
+    train_augDF.to_csv(cell_train_aug, index=False)
     return 0
 
-def SelectElements(args, cell_trainData, bamfiles_cell, dnaseTmpDir, all_prList, all_enhList):
-    # cell_trainData = prep.HiC_Training(cell)
+def SelectElements_DNase(args, cell_trainData, bamfiles_cell, dnaseTmpDir, all_prList, all_enhList, outname = "Train"):
+    """
+    select DNase elements
+    """
+    # cell_trainData = prep.hictrain_augment(cell)
     # bamfiles_cell = list(itertools.chain.from_iterable(prep.DnaseCells[cell]))
     # dnaseTmpDir = prep.dnaseTmpDir
     # all_prList = pd.read_csv(prep.promoter['bed-path'], delimiter='\t', names=prep.promoter['headers']).name
     # all_enhList = pd.read_csv(prep.enhancer['bed-path'], delimiter='\t', names=prep.enhancer['headers']).name
 
     tasklist = [dnaseTmpDir(bamf) for bamf in bamfiles_cell]
-    objfunc = lambda t:SelectElements_in_TrainingData(cell_trainData, t, all_prList, all_enhList)
+    objfunc = lambda bamdir:pt.SelectElements_in_TrainingData(cell_trainData, np.load(f"{bam_dir}/promoter.npz",allow_pickle=True)['expr'],
+        np.load(f"{bam_dir}/enhancer.npz",allow_pickle=True)['expr'],
+        all_prList, all_enhList, 
+        f"{bam_dir}/promoter{outname}.npz",
+        f"{bam_dir}/enhancer{outname}.npz", 'expr')
 
     args.nTasks = min(args.nTasks,len(tasklist))
 
-    print(f"selecting promoter & enhancers from PCHi-C training data for: {args.file_index}/{args.nTasks}..", end=" ", flush=True)
+    print(f"selecting reg elements' DNase  from PCHi-C training data for: {args.file_index}/{args.nTasks}..", end=" ", flush=True)
     pt.distribute_task(task_list = tasklist, 
         nTasks = int(args.nTasks), file_index=int(args.file_index), 
         func=objfunc, num_tasks=len(tasklist),
         dry_run=False)
+    print(".", flush=True)
+
+    return 0
+
+
+def SelectElements_DNA(cell, cell_trainData, prDNA, enhDNA, all_prList, all_enhList, outdir):
+    """
+    select DNA elements
+    """
+    # cell_trainData = prep.hictrain_augment(cell)
+    # prDNA = prep.promoter['dna-out']
+    # enhDNA = prep.enhancer['dna-out']
+    # all_prList = pd.read_csv(prep.promoter['bed-path'], delimiter='\t', names=prep.promoter['headers']).name
+    # all_enhList = pd.read_csv(prep.enhancer['bed-path'], delimiter='\t', names=prep.enhancer['headers']).name
+
+    reshapeDNA = lambda x:x.reshape(-1,x.shape[-1]//4,4)
+
+    print(f"selecting  reg elements' DNA-sequence from PCHi-C training data for: {args.file_index}/{args.nTasks}..", end=" ", flush=True)
+
+    pt.SelectElements_in_TrainingData(cell_trainData, reshapeDNA(np.load(prDNA, allow_pickle=True)['sequence']),
+        reshapeDNA(np.load(enhDNA, allow_pickle=True)['sequence']),
+        all_prList, all_enhList, 
+        f"{outdir}/promoterDNA_{cell}.npz",
+        f"{outdir}/promoterDNA_{cell}.npz", 'sequence', 
+        transform = lambda x:x.reshape(-1,x.shape[-1]*x.shape[-2]))
+
     print(".", flush=True)
 
     return 0
@@ -385,22 +419,34 @@ if __name__=="__main__":
         HiCMatch(args, HiCParts, tmp_out, promoter_dna, enhancer_dna, cell, th_pos)
 
     if args.taskType=="hicLabels":
-        # pt.combine(tmp_out, hic_matched)
+        pt.combine(tmp_out, hic_matched)
 
-        # transcriptsToGene(gtfFile, hic_matched, hic_grpMatch)
+        transcriptsToGene(gtfFile, hic_matched, hic_grpMatch)
 
-        # hicUniqueMatch(hic_grpMatch, hic_TrainPE, hic_TrainEP)
+        hicUniqueMatch(hic_grpMatch, hic_TrainPE, hic_TrainEP)
 
-        # HiCTrainingPosLabel(hic_TrainPE, hic_TrainEP, prep.promoter['window'], prep.enhancer['window'], traindata_out = hicTrainPos)
+        HiCTrainingPosLabel(hic_TrainPE, hic_TrainEP, prep.promoter['window'], prep.enhancer['window'], traindata_out = hicTrainPos)
     
-        # HiCTrainingNegLabel(hicTSV, cell, th_neg, hicTrainPos, promoter_dna, enhancer_dna, prep.promoter['window'], prep.enhancer['window'], hic_out = hicTrain, numSamples=numSamples)
+        HiCTrainingNegLabel(hicTSV, cell, th_neg, hicTrainPos, promoter_dna, enhancer_dna, prep.promoter['window'], prep.enhancer['window'], hic_out = hicTrain, numSamples=numSamples)
 
-        bamfiles_cell = list(itertools.chain.from_iterable(prep.DnaseCells[cell]))
-        all_prList = pd.read_csv(prep.promoter['bed-path'], delimiter='\t', names=prep.promoter['headers']).name
-        all_enhList = pd.read_csv(prep.enhancer['bed-path'], delimiter='\t', names=prep.enhancer['headers']).name
-        SelectElements(args, prep.HiC_Training(cell), bamfiles_cell, prep.dnaseTmpDir, all_prList, all_enhList)
+        # for cell in prep.DnaseCells.keys():
+        #     os.makedirs(f"{prep.tmpBaseDir_hic}/{cell}/P-E",exist_ok=True)
+        #     os.rename(prep.HiC_Training(cell), f"{prep.tmpBaseDir_hic}/{cell}/P-E/pairs.csv")
+        # Run DataPrepare.py
+        # python DataPrepare.py /fastscratch/agarwa/DeepTact_tmp.1/TrainingData/{CELL} P-E
 
+        # train_augment(prep.hictrain(cell), prep.hictrain_augment(cell), 
+        #     prep.enhancer['ext-window']-prep.enhancer['window'], prep.promoter['ext-window']-prep.promoter['window'], 
+        #     prep.enhancer['aug_step'],  prep.promoter['aug_step'], 
+        #     prep.enhancer['window'], prep.promoter['window'])
 
+        # all_prList = pd.read_csv(prep.promoter['bed-path'], delimiter='\t', names=prep.promoter['headers']).name
+        # all_enhList = pd.read_csv(prep.enhancer['bed-path'], delimiter='\t', names=prep.enhancer['headers']).name
+
+        # bamfiles_cell = list(itertools.chain.from_iterable(prep.DnaseCells[cell]))
+        # SelectElements_DNase(args, prep.hictrain_augment(cell), bamfiles_cell, prep.dnaseTmpDir, all_prList, all_enhList, outname = "_Train_Augment")
+
+        # SelectElements_DNA(cell, prep.hictrain_augment(cell), prep.promoter['dna-out'], prep.enhancer['dna-out'], all_prList, all_enhList, prep.tmpBaseDir)
 
 
 

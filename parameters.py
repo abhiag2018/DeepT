@@ -10,10 +10,12 @@ import preptools as pt
 
 
 baseDataDir = "/projects/li-lab/agarwa/CUBE/DeepTact/dataset" #dataset base directory
+AUG_LEN = 1000
+AUG_STEP = 50
 
 # directory to store most of the intermediate processed files
-tmpBaseDir = "/fastscratch/agarwa/DeepTact_tmp"
-codeTmpDir = "/fastscratch/agarwa/DeepTact_tmp/tmp_data" #directory for short lived (temporary) files 
+tmpBaseDir = "/fastscratch/agarwa/DeepTact_tmp.1"
+codeTmpDir = f"{tmpBaseDir}/tmp_data" #directory for short lived (temporary) files 
 bgWindow = int(1e6) # background length for regulatory elements = 1MB (both promoters and enhancers)
 
 hg19 = f"{baseDataDir}/hg19.fa" #DNA-Sequence input : fasta file
@@ -25,6 +27,8 @@ promoter = {'headers': ['chrom', 'txStart', 'txEnd', 'name', 'score', 'strand',
     'window': 1000,  # length of DNA sequence & DNase-Seq data
     'allfield-bed': f"{baseDataDir}/hg19_promoter_allFields.bed" # all_field.bed transcriptID file downloaded from ENCODE
 }
+promoter['ext-window'] = promoter['window'] + AUG_LEN
+promoter['aug_step'] = AUG_STEP
 
     
 ## enhancer parameters
@@ -34,7 +38,8 @@ enhancer = {'headers': ['chrom', 'chromStart', 'chromEnd', 'name', 'score', 'str
     'window': 2000, # length of DNA sequence & DNase-Seq data
     'allfield-bed': f"{baseDataDir}/enhancers_fantom5/human_permissive_enhancers_phase_1_and_2.bed" # bed file downloaded from FANTOM5
     }
-
+enhancer['ext-window'] = enhancer['window'] + AUG_LEN
+enhancer['aug_step'] = AUG_STEP
 
 ## DNase input parameters
 LIMITBAM = None #limit bamfiles pre-processing to make development set; set to None to process everything

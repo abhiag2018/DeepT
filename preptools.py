@@ -506,6 +506,74 @@ def process_inputArgs(input_parse=sys.argv, argType = {'file_index':None, 'nTask
         sys.exit("file_index > nTasks")
     return args
 
+def SelectElements_in_TrainingData(cell_trainData, pr_data, enh_data, all_prList, all_enhList, prout, enhout, savez_key, transform = lambda x:x):
+    """
+    check if elements in training data are present in the element list. If yes, then select those elements, and save the inpur features corresponding to those elements
+    input : 
+        cell_trainData : training label csv file
+        pr_data : input features for promoter
+        enh_data : input features for promoter
+        all_prList : all promoters list
+        all_enhList : all enhancers list
+        prout : selected promoters' features output file 
+        enhout : selected enhancers' features output file 
+        savez_key : output file key
+    """
+
+    trainData = pd.read_csv(cell_trainData)
+    train_promoters = trainData['promoter_name'].apply(lambda x:x.split(":")[0])
+    train_enhancers = trainData['enhancer_name']
+
+    tfunc = lambda x: pd.Series([x.split(':')[0]]+list(map(int, x.split(':')[1].split('-'))))
+    all_enh_DF = all_enhList.apply(tfunc).rename(columns={0:'chr',1:'st',2:'en'})
+
+
+    # make sure you for each promoter in training data you find unique match in promoter list
+    Count_Matched_Promoters = lambda x:sum(all_prList==x)
+    assert len(train_promoters) == sum(train_promoters.apply(Count_Matched_Promoters))
+    assert len(train_promoters) == sum(train_promoters.apply(Count_Matched_Promoters)>=1)
+
+    # make sure you for each enhancer in training data you find unique match in enhancer list
+    trainenhMid = train_enhancers.apply(lambda x:sum(map(int,x.split(':')[1].split('-')))//2)
+    trainenhChr = train_enhancers.apply(lambda x:x.split(':')[0])
+    train_enh_DF = pd.DataFrame({'mid':trainenhMid,'chr':trainenhChr})
+    count_match =  train_enh_DF.apply(lambda x: sum((all_enh_DF['st']<x['mid']) & (x['mid']<=all_enh_DF['en']) & (x['chr']==all_enh_DF['chr'])),axis=1)
+    assert len(train_enhancers) == sum(count_match>=1)
+    assert len(train_enhancers) == sum(count_match)
+
+
+    # # select the DNase data for promoter corresponding to the Training Data
+    # pr_data = np.load(f"{bam_dir}/promoter.npz",allow_pickle=True)['expr']
+    # enh_data = np.load(f"{bam_dir}/enhancer.npz",allow_pickle=True)['expr']
+
+    def select_from_extPr(data, all_prList, row):
+        bin_sel =  all_prList==row['promoter_name'].split(":")[0]
+        stidx = row['promoter_start']-row['pr_base_start']
+        elem_len = row['promoter_end']-row['promoter_start']
+        return data[bin_sel][0][stidx:stidx+elem_len]
+
+    def select_from_extEnh(data, all_enh_DF, row):
+        row_chr = row['enhancer_name'].split(':')[0]
+        row_mid = sum(map(int,row['enhancer_name'].split(':')[1].split('-')))//2
+
+        bin_sel =  (all_enh_DF['st']<=row_mid) & (row_mid<=all_enh_DF['en']) & ( row_chr==all_enh_DF['chr'])
+        stidx = row['enhancer_start']-row['enh_base_start']
+        elem_len = row['enhancer_end']-row['enhancer_start']
+
+        return data[bin_sel][0][stidx:stidx+elem_len]
+
+    dnase_pr_train = trainData.apply(lambda row: select_from_extPr(pr_data, all_prList, row),axis=1).values
+
+    dnase_enh_train = trainData.apply(lambda row: select_from_extEnh(enh_data, all_enh_DF, row),axis=1).values
+    # dnase_enh_train =  train_enh_DF.apply(lambda x: enh_data[(all_enh_DF['st']<=x['mid']) & (x['mid']<=all_enh_DF['en']) & (x['chr']==all_enh_DF['chr'])][0],axis=1)
+
+    np.savez(prout, **{savez_key:transform(dnase_pr_train)})
+    np.savez(enhout, **{savez_key:transform(dnase_enh_train)})
+
+    # np.load(f"{dirDNase}/enhancerTrain.npz", allow_pickle=True)['expr']
+    return 0
+
+
 if __name__=="__main__":
     base_dataDir = "/projects/li-lab/agarwa/CUBE/DeepTact/dataset"
     # decompress_dir_recursive(f"{base_dataDir}/Dnase-Seq/**/**/*.gz")
