@@ -14,9 +14,9 @@ optionsPrep=('prepBam' 'prepPr' 'prepEnh' 'prepHiC')
 
 optionsDNase=('genIndex' 'bamToArray' 'pgenProfile' 'egenProfile')
 
-optionsDNA=('pDNA' 'eDNA' 'selectDNA')
+optionsDNA=('pDNA' 'eDNA')
 
-optionsPCHiC=('hicMatch' 'hicLabels')
+optionsPCHiC=('hicMatch' 'hicLabels' 'selectDNase' 'selectDNA')
 
 options=("${optionsPrep[@]}" "${optionsDNase[@]}" "${optionsDNA[@]}" "${optionsPCHiC[@]}")
 # echo ${options[@]}

@@ -2,11 +2,14 @@
 - specify intermediate and final preprocessing output file names and path
 - do elementary pre-processing
 """
+
 import colored_traceback.always
-import os, glob, shutil, sys, itertools
+import os, shutil, sys, itertools, argparse
+import glob
+
 import pandas as pd
+
 import preptools as pt
-import argparse, itertools
 from parameters import baseDataDir, tmpBaseDir, codeTmpDir, bgWindow, promoter, enhancer, bamfilesInit, bamDir, clearRun, reRun, hg19, hicTSV, gtf, DnaseCells
 
 

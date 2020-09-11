@@ -4,8 +4,12 @@
 - only called through preprocessing.py
 """
 import colored_traceback.always
-import os, re, glob
+import os
+import re, glob
+from collections import OrderedDict
+
 import pandas as pd
+
 import preptools as pt
 
 
@@ -46,12 +50,12 @@ LIMITBAM = None #limit bamfiles pre-processing to make development set; set to N
 bamDir = f"{baseDataDir}/Dnase-Seq/cellTypes" # .bam files for DNase-Seq input
 bamfilesInit = [fn for fn in glob.glob(f"{bamDir}/**/*.bam",recursive=True) if re.match("[^.]*\.bam$",fn)][:LIMITBAM] # list the .bam files to process inside the main directory
 
-DnaseCells={} #cell type info for the .bam files
+DnaseCells = OrderedDict()  #cell type info for the .bam files
+DnaseCells['nCD4'] = [['ENCFF138MTV.bam'], ['ENCFF947LCB.bam']]
+DnaseCells['tCD4'] = [['ENCFF145YPS.bam'] ,['ENCFF938VVP.bam'] ,['ENCFF308TOC.bam']]
 DnaseCells['tCD8'] = [['ENCFF054ZTY.bam'], ['ENCFF736QAD.bam'],['ENCFF790RMQ.bam']]
 DnaseCells['tB'] = [['ENCFF203BEH.bam'] ,['ENCFF469VSO.bam'] ,['ENCFF504HES.bam', 'ENCFF552WWJ.bam']]
-DnaseCells['nCD4'] = [['ENCFF138MTV.bam'], ['ENCFF947LCB.bam']]
 DnaseCells['Mon'] = [['ENCFF295OEK.bam', 'ENCFF780FKA.bam'],['ENCFF175LYA.bam'] ,['ENCFF227VKS.bam'] ,['ENCFF418HYD.bam']] 
-DnaseCells['tCD4'] = [['ENCFF145YPS.bam'] ,['ENCFF938VVP.bam'] ,['ENCFF308TOC.bam']]
 DnaseCells['FoeT'] = [['ENCFF840GSK.bam'] ,['ENCFF487IUY.bam'] ,['ENCFF315TUQ.bam'] ,['ENCFF127FDA.bam'] ,['ENCFF719KCS.bam'] ,['ENCFF149PAO.bam'] ,['ENCFF224XWI.bam'] ,['ENCFF347QEH.bam'] ,['ENCFF397UIC.bam']]
 
 

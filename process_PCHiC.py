@@ -1,11 +1,14 @@
-import sys, itertools
-import numpy as np
-import argparse
-import gtfparse
-import preptools as pt
-import pandas as pd
+import colored_traceback.always
+import sys, os, argparse
+import random, itertools
+
 import matplotlib.pyplot as plt
-import random
+
+import numpy as np
+import pandas as pd
+import gtfparse
+
+import preptools as pt
 
 SUBSAMPLE = None
 
@@ -321,7 +324,7 @@ def train_augment(cell_traindata, cell_train_aug, aug_len_enh, aug_len_pr, aug_s
     train_augDF.to_csv(cell_train_aug, index=False)
     return 0
 
-def SelectElements_DNase(args, cell_trainData, bamfiles_cell, dnaseTmpDir, all_prList, all_enhList, outname = "Train"):
+def SelectElements_DNase(args, cell_trainData, bamfiles_cell, dnaseTmpDir, all_prList, all_enhList, outname = "Train", skip_assert = False):
     """
     select DNase elements
     """
@@ -332,11 +335,11 @@ def SelectElements_DNase(args, cell_trainData, bamfiles_cell, dnaseTmpDir, all_p
     # all_enhList = pd.read_csv(prep.enhancer['bed-path'], delimiter='\t', names=prep.enhancer['headers']).name
 
     tasklist = [dnaseTmpDir(bamf) for bamf in bamfiles_cell]
-    objfunc = lambda bamdir:pt.SelectElements_in_TrainingData(cell_trainData, np.load(f"{bam_dir}/promoter.npz",allow_pickle=True)['expr'],
+    objfunc = lambda bam_dir:pt.SelectElements_in_TrainingData(cell_trainData, np.load(f"{bam_dir}/promoter.npz",allow_pickle=True)['expr'],
         np.load(f"{bam_dir}/enhancer.npz",allow_pickle=True)['expr'],
         all_prList, all_enhList, 
         f"{bam_dir}/promoter{outname}.npz",
-        f"{bam_dir}/enhancer{outname}.npz", 'expr')
+        f"{bam_dir}/enhancer{outname}.npz", 'expr', skip_assert = skip_assert)
 
     args.nTasks = min(args.nTasks,len(tasklist))
 
@@ -350,7 +353,7 @@ def SelectElements_DNase(args, cell_trainData, bamfiles_cell, dnaseTmpDir, all_p
     return 0
 
 
-def SelectElements_DNA(cell, cell_trainData, prDNA, enhDNA, all_prList, all_enhList, outdir):
+def SelectElements_DNA(cell_trainData, prDNA, enhDNA, all_prList, all_enhList, outdir, out_append = '', skip_assert = True):
     """
     select DNA elements
     """
@@ -367,13 +370,50 @@ def SelectElements_DNA(cell, cell_trainData, prDNA, enhDNA, all_prList, all_enhL
     pt.SelectElements_in_TrainingData(cell_trainData, reshapeDNA(np.load(prDNA, allow_pickle=True)['sequence']),
         reshapeDNA(np.load(enhDNA, allow_pickle=True)['sequence']),
         all_prList, all_enhList, 
-        f"{outdir}/promoterDNA_{cell}.npz",
-        f"{outdir}/promoterDNA_{cell}.npz", 'sequence', 
-        transform = lambda x:x.reshape(-1,x.shape[-1]*x.shape[-2]))
+        f"{outdir}/promoterDNA_{out_append}.npz",
+        f"{outdir}/enhancerDNA_{out_append}.npz", 'sequence', 
+        transform = lambda x:x.reshape(-1,x.shape[-1]*x.shape[-2]),
+        skip_assert = skip_assert)
 
     print(".", flush=True)
 
     return 0
+
+
+def SelectElements_DNA_parallel(args, cell_trainData, prDNA, enhDNA, all_prList, all_enhList, outdir, tmp_dir = ".",  out_append = '', skip_assert = False, parallel_num = 100, task="combine"):
+    """
+    select DNA elements parallel
+    """
+
+    assert task in ['split','run','combine']
+    split_csvs = [f"{tmp_dir}/{out_append}_csv_part_{i}.csv" for i in range(parallel_num)]
+    if task == 'split':
+        pt.splitCSV(cell_trainData, split_csvs, readArgs= {}, writeArgs= {'index':False})
+    elif task == 'run':
+        applyfunc = lambda index, augmented_trainData_cell : SelectElements_DNA(augmented_trainData_cell, prDNA, enhDNA, all_prList, all_enhList, 
+            outdir, out_append = f"{out_append}_{index}", skip_assert = skip_assert)
+
+        tasklist = list(zip(range(args.nTasks),split_csvs))
+
+        args.nTasks = min(args.nTasks,len(tasklist))
+
+        print(f"applying {applyfunc.__name__} csv (file_index = {args.file_index}/{len(tasklist)})..", end=" ", flush=True)
+        pt.distribute_task(task_list = tasklist, 
+            nTasks = int(args.nTasks), file_index=int(args.file_index), 
+            func=lambda x:applyfunc(*x), num_tasks=len(tasklist),
+            dry_run=False)
+        print(".", flush=True)
+
+    else:
+        prDNA = np.concatenate([np.load(f"{outdir}/promoterDNA_{cell}_{index}.npz", allow_pickle=True)['sequence'] for index in range(args.nTasks)])
+        enhDNA = np.concatenate([np.load(f"{outdir}/enhancerDNA_{cell}_{index}.npz", allow_pickle=True)['sequence'] for index in range(args.nTasks)])
+
+        np.savez(f"{outdir}/promoterDNA_{cell}.npz", **{'sequence':prDNA})
+        np.savez(f"{outdir}/enhancerDNA_{cell}.npz", **{'sequence':enhDNA})
+
+
+    return 0
+
 
 
 if __name__=="__main__":
@@ -383,7 +423,7 @@ if __name__=="__main__":
     args = pt.process_inputArgs(input_parse=sys.argv[1:], argType=argType)
     # args = pt.process_inputArgs(input_parse=['--file_index','0','--nTasks','52','--taskType','pWin'])
 
-    taskTypes = ["hicMatch", "hicLabels"]
+    taskTypes = ['hicMatch', 'hicLabels', 'selectDNase', 'selectDNA']
     # taskTypes = [t+_t for t in ['','p','e'] for _t in _taskTypes]
     assert args.taskType in taskTypes
 
@@ -419,34 +459,57 @@ if __name__=="__main__":
         HiCMatch(args, HiCParts, tmp_out, promoter_dna, enhancer_dna, cell, th_pos)
 
     if args.taskType=="hicLabels":
-        pt.combine(tmp_out, hic_matched)
+        # pt.combine(tmp_out, hic_matched)
+        # print("STEP 1 COMPLETE",flush=True)
+        
 
-        transcriptsToGene(gtfFile, hic_matched, hic_grpMatch)
+        # transcriptsToGene(gtfFile, hic_matched, hic_grpMatch)
+        # print("STEP 2 COMPLETE",flush=True)
+        
 
-        hicUniqueMatch(hic_grpMatch, hic_TrainPE, hic_TrainEP)
+        # hicUniqueMatch(hic_grpMatch, hic_TrainPE, hic_TrainEP)
+        # print("STEP 3 COMPLETE",flush=True)
+        
 
-        HiCTrainingPosLabel(hic_TrainPE, hic_TrainEP, prep.promoter['window'], prep.enhancer['window'], traindata_out = hicTrainPos)
+        # HiCTrainingPosLabel(hic_TrainPE, hic_TrainEP, prep.promoter['window'], prep.enhancer['window'], traindata_out = hicTrainPos)
+        # print("STEP 4 COMPLETE",flush=True)
+        
     
-        HiCTrainingNegLabel(hicTSV, cell, th_neg, hicTrainPos, promoter_dna, enhancer_dna, prep.promoter['window'], prep.enhancer['window'], hic_out = hicTrain, numSamples=numSamples)
+        # HiCTrainingNegLabel(hicTSV, cell, th_neg, hicTrainPos, promoter_dna, enhancer_dna, prep.promoter['window'], prep.enhancer['window'], hic_out = hicTrain, numSamples=numSamples)
+        # os.makedirs(f"{prep.tmpBaseDir_hic}/{cell}/P-E",exist_ok=True)
+        # os.rename(prep.HiC_Training(cell), f"{prep.tmpBaseDir_hic}/{cell}/P-E/pairs.csv")
+        # print("STEP 5 COMPLETE",flush=True)
+        
 
-        # for cell in prep.DnaseCells.keys():
-        #     os.makedirs(f"{prep.tmpBaseDir_hic}/{cell}/P-E",exist_ok=True)
-        #     os.rename(prep.HiC_Training(cell), f"{prep.tmpBaseDir_hic}/{cell}/P-E/pairs.csv")
-        # Run DataPrepare.py
-        # python DataPrepare.py /fastscratch/agarwa/DeepTact_tmp.1/TrainingData/{CELL} P-E
+        # cmd = f"""python ../DeepTACT-master/DataPrepare.py /fastscratch/agarwa/DeepTact_tmp.1/TrainingData/{cell} P-E"""
+        # os.system(cmd)
+        # print("STEP 6 COMPLETE",flush=True)
+        
 
-        # train_augment(prep.hictrain(cell), prep.hictrain_augment(cell), 
-        #     prep.enhancer['ext-window']-prep.enhancer['window'], prep.promoter['ext-window']-prep.promoter['window'], 
-        #     prep.enhancer['aug_step'],  prep.promoter['aug_step'], 
-        #     prep.enhancer['window'], prep.promoter['window'])
+        train_augment(prep.hictrain(cell), prep.hictrain_augment(cell), 
+            prep.enhancer['ext-window']-prep.enhancer['window'], prep.promoter['ext-window']-prep.promoter['window'], 
+            prep.enhancer['aug_step'],  prep.promoter['aug_step'], 
+            prep.enhancer['window'], prep.promoter['window'])
+        print("STEP 7 COMPLETE",flush=True)
+        
 
-        # all_prList = pd.read_csv(prep.promoter['bed-path'], delimiter='\t', names=prep.promoter['headers']).name
-        # all_enhList = pd.read_csv(prep.enhancer['bed-path'], delimiter='\t', names=prep.enhancer['headers']).name
+    if args.taskType=="selectDNase":
+        all_prList = pd.read_csv(prep.promoter['bed-path'], delimiter='\t', names=prep.promoter['headers']).name
+        all_enhList = pd.read_csv(prep.enhancer['bed-path'], delimiter='\t', names=prep.enhancer['headers']).name
 
-        # bamfiles_cell = list(itertools.chain.from_iterable(prep.DnaseCells[cell]))
-        # SelectElements_DNase(args, prep.hictrain_augment(cell), bamfiles_cell, prep.dnaseTmpDir, all_prList, all_enhList, outname = "_Train_Augment")
+        bamfiles_cell = list(itertools.chain.from_iterable(prep.DnaseCells[cell]))
+        SelectElements_DNase(args, prep.hictrain_augment(cell), bamfiles_cell, prep.dnaseTmpDir, all_prList, all_enhList, outname = "_Train_Augment", skip_assert = False)
 
-        # SelectElements_DNA(cell, prep.hictrain_augment(cell), prep.promoter['dna-out'], prep.enhancer['dna-out'], all_prList, all_enhList, prep.tmpBaseDir)
+    if args.taskType=="selectDNA":
+        all_prList = pd.read_csv(prep.promoter['bed-path'], delimiter='\t', names=prep.promoter['headers']).name
+        all_enhList = pd.read_csv(prep.enhancer['bed-path'], delimiter='\t', names=prep.enhancer['headers']).name
+
+        # SelectElements_DNA(prep.hictrain_augment(cell), prep.promoter['dna-out'], prep.enhancer['dna-out'], all_prList, all_enhList, prep.tmpBaseDir, out_append = cell,  skip_assert = False)
+
+        parallel_num = 100
+        SelectElements_DNA_parallel(args, prep.hictrain_augment(cell), prep.promoter['dna-out'], prep.enhancer['dna-out'], all_prList, all_enhList, 
+            prep.tmpBaseDir, tmp_dir = prep.codeTmpDir,  out_append = cell, skip_assert = False, parallel_num = parallel_num, task="combine")
+
 
 
 
