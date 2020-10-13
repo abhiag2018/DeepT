@@ -18,7 +18,8 @@ AUG_LEN = 1000
 AUG_STEP = 50
 
 # directory to store most of the intermediate processed files
-tmpBaseDir = "/fastscratch/agarwa/DeepTact_tmp.1"
+# tmpBaseDir = "/fastscratch/agarwa/DeepTact_tmp.1"
+tmpBaseDir = '/projects/li-lab/agarwa/CUBE/DeepTact/dataset/DeepTact_tmp.1'
 codeTmpDir = f"{tmpBaseDir}/tmp_data" #directory for short lived (temporary) files 
 bgWindow = int(1e6) # background length for regulatory elements = 1MB (both promoters and enhancers)
 

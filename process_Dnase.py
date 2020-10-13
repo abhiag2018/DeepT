@@ -69,6 +69,10 @@ def genDNaseProfile(dnaseTmpDir, bamfilesInit, all_chrom, bed_path, bg_path, hea
         dnase_profile = np.array(prDF.apply(lambda df:chrData[df[0]][df[1]:df[2]].flatten(), axis=1).tolist())
         bg_profile = np.array(prDF_bg.apply(lambda df:np.sum(chrData[df[0]][df[1]:df[2]]),axis=1).tolist())
 
+        _dnase_profile = np.sum(dnase_profile,axis=1)
+        assert np.sum(_dnase_profile[bg_profile==0])==0
+        assert np.logical_not(np.logical_xor((bg_profile<1), (bg_profile==0))).all()
+        bg_profile[bg_profile==0]=1
         out = dnase_profile / bg_profile[:,None] * bgWin
 
         np.savez(f"{tmpBamDir}/{output_fn}.npz",expr = out)

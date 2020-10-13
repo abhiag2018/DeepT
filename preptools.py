@@ -1,22 +1,26 @@
+import colored_traceback.always
 import traceback
-import bisect
-import math
-import numpy as np
-import pandas as pd
-import csv
-import itertools
 import re, os, sys, shutil, argparse
-import glob
-import subprocess
-import matplotlib.pyplot as plt
-import pickle
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import OneHotEncoder
 from numba import jit, prange   
 import copy
+import bisect
+import math
+import itertools
+import csv
+import pickle
+import h5py
+
+import matplotlib.pyplot as plt
+
+import numpy as np
+import pandas as pd
+import glob
+import subprocess
+from sklearn.preprocessing import OneHotEncoder
+import scipy.signal as sg
+
 import gtfparse
 import deeptools.countReadsPerBin as crpb
-import scipy.signal as sg
 
 
 MAXATTEMPTS = 3
@@ -490,7 +494,7 @@ def process_inputArgs(input_parse=sys.argv, argType = {'file_index':None, 'nTask
         argType['nTasks'] = {'type':int, 'help':'total number of tasks'}
 
     if 'taskType' in argType.keys() and argType['taskType'] is None:
-        argType['taskType'] = {'type':str, 'help':'total number of tasks'}
+        argType['taskType'] = {'type':str, 'help':'task type'}
 
     if 'cellType' in argType.keys() and argType['cellType'] is None:
         argType['cellType'] = {'type':str, 'help':"cell type in ['tB','tCD4','nCD4','FoeT','Mon','tCD8']"}
@@ -502,11 +506,11 @@ def process_inputArgs(input_parse=sys.argv, argType = {'file_index':None, 'nTask
 
     args = parser.parse_args(input_parse)
 
-    if args.file_index and args.file_index>args.nTasks:
+    if 'file_index' in argType.keys() and args.file_index and args.file_index>args.nTasks:
         sys.exit("file_index > nTasks")
     return args
 
-def SelectElements_in_TrainingData(cell_trainData, pr_data, enh_data, all_prList, all_enhList, prout, enhout, savez_key, transform = lambda x:x):
+def SelectElements_in_TrainingData(cell_trainData, pr_data, enh_data, all_prList, all_enhList, prout, enhout, savez_key, transform = lambda x:x, skip_assert = False):
     """
     check if elements in training data are present in the element list. If yes, then select those elements, and save the inpur features corresponding to those elements
     input : 
@@ -528,18 +532,19 @@ def SelectElements_in_TrainingData(cell_trainData, pr_data, enh_data, all_prList
     all_enh_DF = all_enhList.apply(tfunc).rename(columns={0:'chr',1:'st',2:'en'})
 
 
-    # make sure you for each promoter in training data you find unique match in promoter list
-    Count_Matched_Promoters = lambda x:sum(all_prList==x)
-    assert len(train_promoters) == sum(train_promoters.apply(Count_Matched_Promoters))
-    assert len(train_promoters) == sum(train_promoters.apply(Count_Matched_Promoters)>=1)
+    if not skip_assert:
+        # make sure you for each promoter in training data you find unique match in promoter list
+        Count_Matched_Promoters = lambda x:sum(all_prList==x)
+        assert len(train_promoters) == sum(train_promoters.apply(Count_Matched_Promoters))
+        assert len(train_promoters) == sum(train_promoters.apply(Count_Matched_Promoters)>=1)
 
-    # make sure you for each enhancer in training data you find unique match in enhancer list
-    trainenhMid = train_enhancers.apply(lambda x:sum(map(int,x.split(':')[1].split('-')))//2)
-    trainenhChr = train_enhancers.apply(lambda x:x.split(':')[0])
-    train_enh_DF = pd.DataFrame({'mid':trainenhMid,'chr':trainenhChr})
-    count_match =  train_enh_DF.apply(lambda x: sum((all_enh_DF['st']<x['mid']) & (x['mid']<=all_enh_DF['en']) & (x['chr']==all_enh_DF['chr'])),axis=1)
-    assert len(train_enhancers) == sum(count_match>=1)
-    assert len(train_enhancers) == sum(count_match)
+        # make sure you for each enhancer in training data you find unique match in enhancer list
+        trainenhMid = train_enhancers.apply(lambda x:sum(map(int,x.split(':')[1].split('-')))//2)
+        trainenhChr = train_enhancers.apply(lambda x:x.split(':')[0])
+        train_enh_DF = pd.DataFrame({'mid':trainenhMid,'chr':trainenhChr})
+        count_match =  train_enh_DF.apply(lambda x: sum((all_enh_DF['st']<x['mid']) & (x['mid']<=all_enh_DF['en']) & (x['chr']==all_enh_DF['chr'])),axis=1)
+        assert len(train_enhancers) == sum(count_match>=1)
+        assert len(train_enhancers) == sum(count_match)
 
 
     # # select the DNase data for promoter corresponding to the Training Data
@@ -562,9 +567,11 @@ def SelectElements_in_TrainingData(cell_trainData, pr_data, enh_data, all_prList
 
         return data[bin_sel][0][stidx:stidx+elem_len]
 
-    dnase_pr_train = trainData.apply(lambda row: select_from_extPr(pr_data, all_prList, row),axis=1).values
+    dnase_pr_train = trainData.apply(lambda row: select_from_extPr(pr_data, all_prList, row),axis=1)
+    dnase_pr_train = np.array(dnase_pr_train.tolist())
 
-    dnase_enh_train = trainData.apply(lambda row: select_from_extEnh(enh_data, all_enh_DF, row),axis=1).values
+    dnase_enh_train = trainData.apply(lambda row: select_from_extEnh(enh_data, all_enh_DF, row),axis=1)
+    dnase_enh_train = np.array(dnase_enh_train.tolist())
     # dnase_enh_train =  train_enh_DF.apply(lambda x: enh_data[(all_enh_DF['st']<=x['mid']) & (x['mid']<=all_enh_DF['en']) & (x['chr']==all_enh_DF['chr'])][0],axis=1)
 
     np.savez(prout, **{savez_key:transform(dnase_pr_train)})
@@ -573,6 +580,20 @@ def SelectElements_in_TrainingData(cell_trainData, pr_data, enh_data, all_prList
     # np.load(f"{dirDNase}/enhancerTrain.npz", allow_pickle=True)['expr']
     return 0
 
+
+def npz_to_hdf5(npz_fpath, transform=lambda x:x):
+    """save npz file as hdf5"""
+    path_list = npz_fpath.split("/")
+    out_path = '/'.join(path_list[:-1])+'/'+path_list[-1].split('.')[0]+'.hdf5'
+    npz_file = np.load(npz_fpath, allow_pickle=True)
+
+    with h5py.File(out_path, "w") as data_file:
+        for k in npz_file.files:
+            data_file.create_dataset(k, data=transform(npz_file[k]))
+    print(f"{out_path} saved.")
+
+
+flatten = lambda x:list(itertools.chain.from_iterable(x))
 
 if __name__=="__main__":
     base_dataDir = "/projects/li-lab/agarwa/CUBE/DeepTact/dataset"
