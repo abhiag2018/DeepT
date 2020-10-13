@@ -3,10 +3,8 @@
 #SBATCH --output=./slurm-log/slurm-%A_%a.out
 #SBATCH --error=./slurm-log/slurm-%A.out
 #SBATCH --qos batch 
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
 #SBATCH --mem=500G
-#SBATCH --time 12:00:00
+#SBATCH --time 3-00:00:00
 
 num_tasks=$SLURM_ARRAY_TASK_COUNT
 
@@ -16,9 +14,11 @@ optionsDNase=('genIndex' 'bamToArray' 'pgenProfile' 'egenProfile')
 
 optionsDNA=('pDNA' 'eDNA')
 
-optionsPCHiC=('hicMatch' 'hicLabels' 'selectDNase' 'selectDNA')
+optionsPCHiC=('hicMatch' 'hicLabels' 'selectDNase' 'combineDNaseReps' 'selectDNA' 'sepData')
 
-options=("${optionsPrep[@]}" "${optionsDNase[@]}" "${optionsDNA[@]}" "${optionsPCHiC[@]}")
+optionsNPZ=('prDNase' 'enhDNase' 'prDNA' 'enhDNA' 'stats' 'tohdf5' 'plotDNase')
+
+options=("${optionsPrep[@]}" "${optionsDNase[@]}" "${optionsDNA[@]}" "${optionsPCHiC[@]}" "${optionsNPZ[@]}")
 # echo ${options[@]}
 # echo ${#options[@]}
 
@@ -52,6 +52,7 @@ fi
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate cube
 
+
 if [[ ${optionsPrep[@]} == *$option* ]]; then
     echo  "run preprocessing.py"
     python preprocessing.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID
@@ -65,12 +66,15 @@ elif [[ ${optionsDNA[@]} == *$option* ]]; then
 elif [[ ${optionsPCHiC[@]} == *$option* ]]; then
 	echo  "run process_PCHiC.py"
 	cellType=$2
-	python process_PCHiC.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID --cellType=$cellType
-else
+	python process_PCHiC.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID --cellType=$cellType --num_rep=$3
+elif [[ ${optionsDNase[@]} == *$option* ]]; then
 	echo  "run process_Dnase.py"
 	python process_Dnase.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID
+else
+	cellType=$2
+	echo  "run analyze_npz.py"
+	python analyze_npz.py --nTasks ${num_tasks} --taskType ${option}  --file_index=$SLURM_ARRAY_TASK_ID --cellType=$cellType
 fi
-
 
 # sbatch -J prepBam scriptDT.sh prepBam
 # sbatch -J prepPr scriptDT.sh prepPr
@@ -110,6 +114,7 @@ fi
 # sbatch -J hicLabels scriptDT.sh hicLabels tCD8
 
 
+# sbatch -J prDNA scriptDT.sh prDNA
 
 
 

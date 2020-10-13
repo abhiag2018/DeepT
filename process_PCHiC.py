@@ -352,6 +352,45 @@ def SelectElements_DNase(args, cell_trainData, bamfiles_cell, dnaseTmpDir, all_p
 
     return 0
 
+def combine_DNase(bamfs_cell, outpath): 
+    # bamfs_cell = [f"{prep.tmpBaseDir}/{bamf.split('.')[0]}/promoter_Train_Augment.npz" for bamf in pt.flatten(prep.DnaseCells[cell])]
+    # outpath = f"{prep.tmpBaseDir_hic}/{cell}/P-E/promoter_Seq.npz"
+
+    dnase_cell = [np.load(bamf,allow_pickle=True)['expr'] for bamf in bamfs_cell]
+    dnase_cell = np.stack(dnase_cell)
+    dnase_cell = np.transpose(dnase_cell,axes=(1,0,2))
+
+    np.savez(outpath, expr=dnase_cell)
+    return 0
+
+
+def combine_DNase_Reps(pr_bamfs_cell, enh_bamfs_cell, outpath_pr, outpath_enh):
+    """
+    combine chromatin openness score from different bam file for one cell type
+    """
+    # pr_bamfs_cell = [f"{prep.tmpBaseDir}/{bamf.split('.')[0]}/promoter_Train_Augment.npz" for bamf in pt.flatten(prep.DnaseCells[cell])]
+    # enh_bamfs_cell = [f"{prep.tmpBaseDir}/{bamf.split('.')[0]}/enhancer_Train_Augment.npz" for bamf in pt.flatten(prep.DnaseCells[cell])]
+
+    # outpath_pr = f"{prep.tmpBaseDir_hic}/{cell}/P-E/promoter_Seq.npz"
+    # outpath_enh = f"{prep.tmpBaseDir_hic}/{cell}/P-E/enhancer_Seq.npz"
+
+    tasklist = [(pr_bamfs_cell,outpath_pr),(enh_bamfs_cell,outpath_enh)]
+
+    objfunc = lambda task:combine_DNase(*task)
+
+    args.nTasks = min(args.nTasks,len(tasklist))
+
+    print(f"selecting reg elements' DNase  from PCHi-C training data for: {args.file_index}/{args.nTasks}..", end=" ", flush=True)
+    pt.distribute_task(task_list = tasklist, 
+        nTasks = int(args.nTasks), file_index=int(args.file_index), 
+        func=objfunc, num_tasks=len(tasklist),
+        dry_run=False)
+    print(".", flush=True)
+
+    return 0
+
+
+
 
 def SelectElements_DNA(cell_trainData, prDNA, enhDNA, all_prList, all_enhList, outdir, out_append = '', skip_assert = True):
     """
@@ -397,7 +436,7 @@ def SelectElements_DNA_parallel(args, cell_trainData, prDNA, enhDNA, all_prList,
 
         args.nTasks = min(args.nTasks,len(tasklist))
 
-        print(f"applying {applyfunc.__name__} csv (file_index = {args.file_index}/{len(tasklist)})..", end=" ", flush=True)
+        print(f"{out_append}: applying {applyfunc.__name__} to csv (file_index = {args.file_index}/{len(tasklist)})..", end=" ", flush=True)
         pt.distribute_task(task_list = tasklist, 
             nTasks = int(args.nTasks), file_index=int(args.file_index), 
             func=lambda x:applyfunc(*x), num_tasks=len(tasklist),
@@ -405,25 +444,68 @@ def SelectElements_DNA_parallel(args, cell_trainData, prDNA, enhDNA, all_prList,
         print(".", flush=True)
 
     else:
-        prDNA = np.concatenate([np.load(f"{outdir}/promoterDNA_{cell}_{index}.npz", allow_pickle=True)['sequence'] for index in range(args.nTasks)])
-        enhDNA = np.concatenate([np.load(f"{outdir}/enhancerDNA_{cell}_{index}.npz", allow_pickle=True)['sequence'] for index in range(args.nTasks)])
+        prDNA = np.concatenate([np.load(f"{outdir}/promoterDNA_{cell}_{index}.npz", allow_pickle=True)['sequence'] for index in range(parallel_num)])
+        enhDNA = np.concatenate([np.load(f"{outdir}/enhancerDNA_{cell}_{index}.npz", allow_pickle=True)['sequence'] for index in range(parallel_num)])
 
-        np.savez(f"{outdir}/promoterDNA_{cell}.npz", **{'sequence':prDNA})
-        np.savez(f"{outdir}/enhancerDNA_{cell}.npz", **{'sequence':enhDNA})
+        label_data = np.array(pd.read_csv(cell_trainData).label)
 
+        np.savez(f"{outdir}/promoterDNA_{cell}.npz", **{'sequence':prDNA, 'label':label_data})
+        np.savez(f"{outdir}/enhancerDNA_{cell}.npz", **{'sequence':enhDNA, 'label':label_data})
+
+        # np.load(f"{prep.tmpBaseDir}/promoterDNA_{cell}.npz", allow_pickle=True)
 
     return 0
 
 
+def seperate_data(CELL, NUM_REP, TYPE='P-E', NUM_SEQ=4):
+    if TYPE == 'P-P':
+        filename1 = 'promoter1'
+        filename2 = 'promoter2'
+        RESIZED_LEN = 1000 #promoter
+    elif TYPE == 'P-E':
+        filename1 = 'enhancer'
+        filename2 = 'promoter'
+        RESIZED_LEN = 2000 #enhancer
+    else:
+        print('ERROR')
+        sys.exit()
+
+    print(os.path.basename(CELL), TYPE, NUM_REP,flush=True)
+    print("reading data..",flush=True)
+    shape1 = (-1, 1, RESIZED_LEN, NUM_SEQ)
+    shape2 = (-1, 1, 1000, NUM_SEQ)
+    region1 = np.load(CELL+'/'+TYPE+'/'+filename1+'_Seq.npz')
+    region2 = np.load(CELL+'/'+TYPE+'/'+filename2+'_Seq.npz')
+    Tlabel = region1['label']
+    Tregion1_seq = region1['sequence'].reshape(shape1).transpose(0, 1, 3, 2)
+    Tregion2_seq = region2['sequence'].reshape(shape2).transpose(0, 1, 3, 2)
+
+    ## load data: DNase
+    shape1 = (-1, 1, NUM_REP, RESIZED_LEN)
+    shape2 = (-1, 1, NUM_REP, 1000)
+    region1 = np.load(CELL+'/'+TYPE+'/'+filename1+'_DNase.npz')
+    region2 = np.load(CELL+'/'+TYPE+'/'+filename2+'_DNase.npz')
+    Tregion1_expr = region1['expr'].reshape(shape1)
+    Tregion2_expr = region2['expr'].reshape(shape2)
+
+    NUM = Tlabel.shape[0]
+    os.makedirs(f'{CELL}/{TYPE}/data',exist_ok=True)
+    print("saving data..",flush=True)
+    for index in range(NUM):
+        np.savez(CELL+'/'+TYPE+'/data/'+f"{index}.npz", enh_seq = Tregion1_seq[index]
+                 , pr_seq = Tregion2_seq[index]
+                 , enh_dnase = Tregion1_expr[index]
+                 , pr_dnase = Tregion2_expr[index], label = Tlabel[index])
+    return 0
 
 if __name__=="__main__":
     import preprocessing as prep
 
-    argType = {'file_index':None, 'nTasks':None, 'taskType':None , 'cellType': None} 
+    argType = {'file_index':None, 'nTasks':None, 'taskType':None , 'cellType': None, 'num_rep':{'type':int,  'help':'bio repeat samples of DNase for cell type','default':1}} 
     args = pt.process_inputArgs(input_parse=sys.argv[1:], argType=argType)
     # args = pt.process_inputArgs(input_parse=['--file_index','0','--nTasks','52','--taskType','pWin'])
 
-    taskTypes = ['hicMatch', 'hicLabels', 'selectDNase', 'selectDNA']
+    taskTypes = ['hicMatch', 'hicLabels', 'selectDNase','combineDNaseReps', 'selectDNA', 'sepData']
     # taskTypes = [t+_t for t in ['','p','e'] for _t in _taskTypes]
     assert args.taskType in taskTypes
 
@@ -458,7 +540,7 @@ if __name__=="__main__":
     if args.taskType=="hicMatch":
         HiCMatch(args, HiCParts, tmp_out, promoter_dna, enhancer_dna, cell, th_pos)
 
-    if args.taskType=="hicLabels":
+    elif args.taskType=="hicLabels":
         # pt.combine(tmp_out, hic_matched)
         # print("STEP 1 COMPLETE",flush=True)
         
@@ -481,7 +563,7 @@ if __name__=="__main__":
         # print("STEP 5 COMPLETE",flush=True)
         
 
-        # cmd = f"""python ../DeepTACT-master/DataPrepare.py /fastscratch/agarwa/DeepTact_tmp.1/TrainingData/{cell} P-E"""
+        # cmd = f"""python ../DeepTACT-master/DataPrepare.py {prep.tmpBaseDir_hic}/{cell} P-E"""
         # os.system(cmd)
         # print("STEP 6 COMPLETE",flush=True)
         
@@ -493,14 +575,23 @@ if __name__=="__main__":
         print("STEP 7 COMPLETE",flush=True)
         
 
-    if args.taskType=="selectDNase":
+    elif args.taskType=="selectDNase":
         all_prList = pd.read_csv(prep.promoter['bed-path'], delimiter='\t', names=prep.promoter['headers']).name
         all_enhList = pd.read_csv(prep.enhancer['bed-path'], delimiter='\t', names=prep.enhancer['headers']).name
 
-        bamfiles_cell = list(itertools.chain.from_iterable(prep.DnaseCells[cell]))
+        bamfiles_cell = pt.flatten(prep.DnaseCells[cell])
         SelectElements_DNase(args, prep.hictrain_augment(cell), bamfiles_cell, prep.dnaseTmpDir, all_prList, all_enhList, outname = "_Train_Augment", skip_assert = False)
 
-    if args.taskType=="selectDNA":
+    elif args.taskType=="combineDNaseReps":
+        pr_bamfs_cell = [f"{prep.tmpBaseDir}/{bamf.split('.')[0]}/promoter_Train_Augment.npz" for bamf in pt.flatten(prep.DnaseCells[cell])]
+        enh_bamfs_cell = [f"{prep.tmpBaseDir}/{bamf.split('.')[0]}/enhancer_Train_Augment.npz" for bamf in pt.flatten(prep.DnaseCells[cell])]
+
+        outpath_pr = f"{prep.tmpBaseDir_hic}/{cell}/P-E/promoter_DNase.npz"
+        outpath_enh = f"{prep.tmpBaseDir_hic}/{cell}/P-E/enhancer_DNase.npz"
+
+        combine_DNase_Reps(pr_bamfs_cell, enh_bamfs_cell, outpath_pr, outpath_enh)
+
+    elif args.taskType=="selectDNA":
         all_prList = pd.read_csv(prep.promoter['bed-path'], delimiter='\t', names=prep.promoter['headers']).name
         all_enhList = pd.read_csv(prep.enhancer['bed-path'], delimiter='\t', names=prep.enhancer['headers']).name
 
@@ -510,7 +601,10 @@ if __name__=="__main__":
         SelectElements_DNA_parallel(args, prep.hictrain_augment(cell), prep.promoter['dna-out'], prep.enhancer['dna-out'], all_prList, all_enhList, 
             prep.tmpBaseDir, tmp_dir = prep.codeTmpDir,  out_append = cell, skip_assert = False, parallel_num = parallel_num, task="combine")
 
-
+    elif args.taskType=="sepData":
+        CELL = f"{prep.tmpBaseDir_hic}/{cell}"
+        NUM_REP = args.num_rep
+        seperate_data(CELL, NUM_REP, TYPE='P-E', NUM_SEQ=4)
 
 
 
