@@ -457,7 +457,7 @@ def SelectElements_DNA_parallel(args, cell_trainData, prDNA, enhDNA, all_prList,
     return 0
 
 
-def seperate_data(CELL, NUM_REP, TYPE='P-E', NUM_SEQ=4):
+def seperate_data(CELL, TYPE='P-E', NUM_SEQ=4):
     if TYPE == 'P-P':
         filename1 = 'promoter1'
         filename2 = 'promoter2'
@@ -470,7 +470,7 @@ def seperate_data(CELL, NUM_REP, TYPE='P-E', NUM_SEQ=4):
         print('ERROR')
         sys.exit()
 
-    print(os.path.basename(CELL), TYPE, NUM_REP,flush=True)
+    print(os.path.basename(CELL), TYPE,flush=True)
     print("reading data..",flush=True)
     shape1 = (-1, 1, RESIZED_LEN, NUM_SEQ)
     shape2 = (-1, 1, 1000, NUM_SEQ)
@@ -480,12 +480,16 @@ def seperate_data(CELL, NUM_REP, TYPE='P-E', NUM_SEQ=4):
     Tregion1_seq = region1['sequence'].reshape(shape1).transpose(0, 1, 3, 2)
     Tregion2_seq = region2['sequence'].reshape(shape2).transpose(0, 1, 3, 2)
 
+
     ## load data: DNase
-    shape1 = (-1, 1, NUM_REP, RESIZED_LEN)
-    shape2 = (-1, 1, NUM_REP, 1000)
     region1 = np.load(CELL+'/'+TYPE+'/'+filename1+'_DNase.npz')
     region2 = np.load(CELL+'/'+TYPE+'/'+filename2+'_DNase.npz')
-    Tregion1_expr = region1['expr'].reshape(shape1)
+    Tregion1_expr = region1['expr']
+    NUM_REP = Tregion1_expr.shape[1]
+    shape1 = (-1, 1, NUM_REP, RESIZED_LEN)
+    shape2 = (-1, 1, NUM_REP, 1000)
+
+    Tregion1_expr = Tregion1_expr.reshape(shape1)
     Tregion2_expr = region2['expr'].reshape(shape2)
 
     NUM = Tlabel.shape[0]
@@ -603,8 +607,8 @@ if __name__=="__main__":
 
     elif args.taskType=="sepData":
         CELL = f"{prep.tmpBaseDir_hic}/{cell}"
-        NUM_REP = args.num_rep
-        seperate_data(CELL, NUM_REP, TYPE='P-E', NUM_SEQ=4)
+        # NUM_REP = args.num_rep
+        seperate_data(CELL, TYPE='P-E', NUM_SEQ=4)
 
 
 
