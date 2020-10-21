@@ -69,7 +69,7 @@ else:
 
 ######################## Initialization #######################
 NUM_SEQ = 4
-NUM_ENSEMBL = int(sys.argv[4])
+# NUM_ENSEMBL = int(sys.argv[4])
 
 ########################### Training ##########################
 # Attention GRU network
@@ -182,68 +182,60 @@ def data_gen(path,index_file,lim_data=None):
         yield input_dict, label
 
 
-def split_train_val_bootstrap(test=0.2, val=0.16):
+def split_train_val_bootstrap(test=0.2):
     labels = np.load(f"{CELL}/{TYPE}/{filename1}_Seq.npz")['label']
     NUM = labels.shape[0]
     testsize = int(NUM*test)
-    valsize = int(NUM*val)
-    trainsize = NUM - valsize - testsize
+    trainsize = NUM - testsize
     random_perm = np.random.permutation(range(NUM))
 
     test_index = random_perm[0:testsize]
-    val_index = random_perm[testsize:testsize+valsize]
-    train_index = random_perm[testsize+valsize:]
-    for t in range(NUM_ENSEMBL):
-        indices = np.random.choice(train_index,trainsize,replace=True)
-        hkl.dump(indices, CELL+'/'+TYPE+'/bagData/train_'+str(t)+'.hkl')
-    hkl.dump(val_index, CELL+'/'+TYPE+'/bagData/val.hkl')
-    hkl.dump(test_index, CELL+'/'+TYPE+'/bagData/test.hkl')
+    train_index = random_perm[testsize:]
+
+    hkl.dump(train_index, CELL+'/'+TYPE+'/train.hkl')
+    hkl.dump(test_index, CELL+'/'+TYPE+'/test.hkl')
     return 0
 
-def bagging(t):
-    traingen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data",f"{CELL}/{TYPE}/bagData/train_{t}.hkl",lim_data=None)
-    valgen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data",f"{CELL}/{TYPE}/bagData/val.hkl",lim_data=None)
+def bagging():
+    traingen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data", f"{LOG_DIR}/train.hkl",lim_data=None)
+    valgen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data", f"{LOG_DIR}/val.hkl",lim_data=None)
     output_types = {'enh_seq':tf.float64, 'pr_seq':tf.float64, 'enh_dnase':tf.float64, 'pr_dnase':tf.float64}
     output_shapes = {'enh_seq':[1,NUM_SEQ,RESIZED_LEN], 'pr_seq':[1,NUM_SEQ,1000], 'enh_dnase':[1,NUM_REP,RESIZED_LEN], 'pr_dnase':[1,NUM_REP,1000]}
     train_set = tf.data.Dataset.from_generator(traingen_callable, output_types=(output_types, tf.int64), output_shapes = (output_shapes,[]))
-    train_set = train_set.shuffle(50000).batch(32)
+    data_set_size = len(np.load(f"{CELL}/{TYPE}/{filename1}_Seq.npz")['label'])
+    train_set = train_set.shuffle(data_set_size).batch(BATCH_SIZE)
     val_set = tf.data.Dataset.from_generator(valgen_callable, output_types=(output_types, tf.int64), output_shapes = (output_shapes,[]))
-    val_set = val_set.shuffle(50000).batch(32)
-
-    # ## load data: sequence
-    # region1 = np.load(CELL+'/'+TYPE+'/bagData/'+filename1+'_Seq_'+str(t)+'.npz')
-    # region2 = np.load(CELL+'/'+TYPE+'/bagData/'+filename2+'_Seq_'+str(t)+'.npz')
-    # label = region1['label']
-    # region1_seq = region1['sequence']
-    # region2_seq = region2['sequence']
-    
-    # ## load data: DNase
-    # region1 = np.load(CELL+'/'+TYPE+'/bagData/'+filename1+'_DNase_'+str(t)+'.npz')
-    # region2 = np.load(CELL+'/'+TYPE+'/bagData/'+filename2+'_DNase_'+str(t)+'.npz')
-    # region1_expr = region1['expr']
-    # region2_expr = region2['expr']
+    val_set = val_set.shuffle(data_set_size).batch(BATCH_SIZE)
 
     model = model_def()
     print('compiling...')
     model.compile(loss = 'binary_crossentropy',
                   optimizer = optimizers.Adam(lr = 0.00001),
                   metrics = ['acc', f1])
-    filename = CELL+'/'+TYPE+'/models_'+time_append+'/best_model_' + str(t) + '.h5'
+    filename = CELL+'/'+TYPE+'/models_'+time_append+'/best_model.h5'
     modelCheckpoint = ModelCheckpoint(filename, monitor = 'val_acc', save_best_only = True, mode = 'max')
 
-    log_dir = CELL+'/'+TYPE+"/logs_" + time_append
-    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, histogram_freq=1)
 
     print('fitting...')
     model.fit(train_set, validation_data=val_set, epochs = 40, callbacks = [modelCheckpoint,tensorboard_callback])
 
 def train():
     ### CHECK GPU usage
+    print(tf.config.list_physical_devices('GPU'))
     print(tf.test.gpu_device_name())
-    # for t in range(NUM_ENSEMBL):
-    t=int(sys.argv[5])
-    print(t)
-    bagging(t)
+
+    VAL_FRAC = 0.2
+    train_index = hkl.load(CELL+'/'+TYPE+'/train.hkl')
+    random_perm = np.random.permutation(range(len(train_index)))
+    valsize = int(len(train_index)*VAL_FRAC)
+    val_index = random_perm[0:valsize]
+    train_index = random_perm[valsize:]
+
+    hkl.dump(train_index, LOG_DIR+'/train.hkl')
+    hkl.dump(val_index, LOG_DIR+'/val.hkl')
+
+    bagging()
 
 
 ########################### Evaluation ##########################
@@ -271,9 +263,12 @@ def evaluate():
 
 
 ############################ MAIN ###############################
+BATCH_SIZE=32
 time_append = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 os.makedirs(CELL+'/'+TYPE+'/models_'+time_append, exist_ok=True)
-os.makedirs(CELL+'/'+TYPE+"/logs_" + time_append, exist_ok=True)
+LOG_DIR = CELL+'/'+TYPE+"/logs_" + time_append
+os.makedirs(LOG_DIR, exist_ok=True)
 train()
 
+# split_train_val_bootstrap()
 

@@ -149,7 +149,7 @@ run "$@";
 ## Select Input Features for Training Data : DNase
 # scriptMain.sh -n 25 selectDNase : 21+ hours
 # scriptMain.sh -n 2 combineDNaseReps : 5 min
-# scriptMain.sh -c <CELL>  -r <NUM_REP> sepData : 2 hours
+# scriptMain.sh -c <CELL> sepData : 1 hours
 
 
 ## Clean-Up
