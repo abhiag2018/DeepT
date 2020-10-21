@@ -11,7 +11,7 @@ if __name__=="__main__":
     argType = {'file_index':None, 'nTasks':None, 'taskType':None , 'cellType':{'type':str, 'help':"cell type in ['tB','tCD4','nCD4','FoeT','Mon','tCD8']", 'default':None}} 
     args = pt.process_inputArgs(input_parse=sys.argv[1:], argType=argType)
 
-    taskTypes = [ 'pDNA' , 'eDNA' , 'selectDNA' ]
+    taskTypes = [ 'pDNA' , 'eDNA' ]
     assert args.taskType in taskTypes
 
     hg19 = prep.hg19
