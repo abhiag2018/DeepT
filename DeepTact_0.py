@@ -215,7 +215,7 @@ def bagging():
     output_types = {'enh_seq':tf.float64, 'pr_seq':tf.float64, 'enh_dnase':tf.float64, 'pr_dnase':tf.float64}
     output_shapes = {'enh_seq':[1,NUM_SEQ,RESIZED_LEN], 'pr_seq':[1,NUM_SEQ,1000], 'enh_dnase':[1,NUM_REP,RESIZED_LEN], 'pr_dnase':[1,NUM_REP,1000]}
     train_set = tf.data.Dataset.from_generator(traingen_callable, output_types=(output_types, tf.int64), output_shapes = (output_shapes,[]))
-    data_set_size = len(np.load(f"{CELL}/{TYPE}/{filename1}_Seq.npz")['label'])
+    data_set_size = len(hkl.load(f"{LOG_DIR}/train.hkl"))
     train_set = train_set.shuffle(data_set_size).batch(BATCH_SIZE)
     val_set = tf.data.Dataset.from_generator(valgen_callable, output_types=(output_types, tf.int64), output_shapes = (output_shapes,[]))
     val_set = val_set.shuffle(data_set_size).batch(BATCH_SIZE)
