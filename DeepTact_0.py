@@ -210,15 +210,15 @@ def split_train_val_bootstrap(test=0.2):
     return 0
 
 def bagging():
-    traingen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data", f"{LOG_DIR}/train.hkl",lim_data=None)
-    valgen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data", f"{LOG_DIR}/val.hkl",lim_data=None)
+    traingen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data", f"{LOG_DIR}/train.hkl",lim_data=None, check_num_rep = False)
+    valgen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data", f"{LOG_DIR}/val.hkl",lim_data=None, check_num_rep = False)
     output_types = {'enh_seq':tf.float64, 'pr_seq':tf.float64, 'enh_dnase':tf.float64, 'pr_dnase':tf.float64}
     output_shapes = {'enh_seq':[1,NUM_SEQ,RESIZED_LEN], 'pr_seq':[1,NUM_SEQ,1000], 'enh_dnase':[1,NUM_REP,RESIZED_LEN], 'pr_dnase':[1,NUM_REP,1000]}
     train_set = tf.data.Dataset.from_generator(traingen_callable, output_types=(output_types, tf.int64), output_shapes = (output_shapes,[]))
-    data_set_size = len(hkl.load(f"{LOG_DIR}/train.hkl"))
-    train_set = train_set.shuffle(data_set_size).batch(BATCH_SIZE)
+    shuffle_buffer_size = 256#len(hkl.load(f"{LOG_DIR}/train.hkl"))
+    train_set = train_set.shuffle(shuffle_buffer_size, reshuffle_each_iteration=True).batch(BATCH_SIZE)
     val_set = tf.data.Dataset.from_generator(valgen_callable, output_types=(output_types, tf.int64), output_shapes = (output_shapes,[]))
-    val_set = val_set.shuffle(data_set_size).batch(BATCH_SIZE)
+    val_set = val_set.shuffle(shuffle_buffer_size, reshuffle_each_iteration=True).batch(BATCH_SIZE)
 
     model = model_def()
     print('compiling...')
