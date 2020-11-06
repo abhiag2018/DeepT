@@ -30,6 +30,7 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.layers import Layer
 # from tensorflow.keras import initializations
 
+import graphtools as gt
 """
 DeepTACT.py
 
@@ -162,7 +163,16 @@ def f1(y_true, y_pred):
     F1 = 2 * P * R / (P + R + K.epsilon())
     return F1
 
-def data_gen(path,index_file,lim_data=None):
+def true_labels(path,index_file,lim_data=None):
+    # path = f"{CELL}/{TYPE}/data"
+    # index_file = f"{CELL}/{TYPE}/bagData/train_{t}.hkl"
+    labels = []
+    for i in itertools.islice(hkl.load(index_file),lim_data):
+        fpath = f"{path}/{i}.npz"
+        labels.append(np.load(fpath)['label'])
+    return np.array(labels)
+
+def data_gen(path,index_file,lim_data=None, check_num_rep = True):
     # path = f"{CELL}/{TYPE}/data"
     # index_file = f"{CELL}/{TYPE}/bagData/train_{t}.hkl"
     for i in itertools.islice(hkl.load(index_file),lim_data):
@@ -171,8 +181,11 @@ def data_gen(path,index_file,lim_data=None):
         input_dict = {}
         input_dict['enh_seq'] = tf.convert_to_tensor(obj['enh_seq'])
         input_dict['pr_seq'] = tf.convert_to_tensor(obj['pr_seq'])
-        input_dict['enh_dnase'] = tf.convert_to_tensor(obj['enh_dnase'])
-        input_dict['pr_dnase'] = tf.convert_to_tensor(obj['pr_dnase'])
+        if check_num_rep:
+            assert obj['enh_dnase'].shape[1] == NUM_REP
+            assert obj['pr_dnase'].shape[1] == NUM_REP
+        input_dict['enh_dnase'] = tf.convert_to_tensor(obj['enh_dnase'])[:,:NUM_REP,:]
+        input_dict['pr_dnase'] = tf.convert_to_tensor(obj['pr_dnase'])[:,:NUM_REP,:]
         label = tf.convert_to_tensor(obj['label'])
         # enh_seq.set_shape([1,NUM_SEQ,RESIZED_LEN])
         # pr_seq.set_shape([1,NUM_SEQ,1000])
@@ -249,17 +262,52 @@ def bag_pred(label, bag_pred, bag_score):
     auprc = metrics.average_precision_score(label, vote_score)
     return f1, auprc
 
-def evaluate():
-    region1_seq, region2_seq, region1_expr, region2_expr, label = load_test_data()#the same format as training data
-    bag_pred = np.zeros((NUM_ENSEMBL,label.shape[0]))
-    bag_score = np.zeros((NUM_ENSEMBL,label.shape[0]))
-    for t in range(NUM_ENSEMBL):
-        model.load_weights('./models_'+time_append+'/best_model_'+str(t)+'.h5')
-        score = model.predict([region1_seq, region2_seq, region1_expr, region2_expr], batch_size = 100)
-        bag_pred[t,:] = (score > 0.5).astype(int).reshape(-1)
-        bag_score[t,:] = score.reshape(-1)
-    f1, auprc = bag_pred(label, bag_pred, bag_score)
-    return f1, auprc
+def evaluate(eval_cell, bootstrap_time):
+    eval_cell_path = '/'.join(CELL.split('/')[:-1])+'/'+eval_cell + '/' + TYPE
+
+    NUM_ENSEMBL=len(bootstrap_time)
+
+    output_types = {'enh_seq':tf.float64, 'pr_seq':tf.float64, 'enh_dnase':tf.float64, 'pr_dnase':tf.float64}
+    output_shapes = {'enh_seq':[1,NUM_SEQ,RESIZED_LEN], 'pr_seq':[1,NUM_SEQ,1000], 'enh_dnase':[1,NUM_REP,RESIZED_LEN], 'pr_dnase':[1,NUM_REP,1000]}
+
+
+    model = model_def()
+    model.compile(loss = 'binary_crossentropy',
+                  optimizer = optimizers.Adam(lr = 0.00001),
+                  metrics = ['acc', f1])
+
+    test_labels = true_labels(f"{eval_cell_path}/data", f"{eval_cell_path}/test.hkl",lim_data=None)
+
+    avg_score = np.zeros((test_labels.shape[0],1))
+
+    for time_append in bootstrap_time[:NUM_ENSEMBL]:
+        model.load_weights(CELL+'/'+TYPE+f"/models_{time_append}/best_model.h5")
+
+        testgen_callable = lambda:data_gen(f"{eval_cell_path}/data", f"{eval_cell_path}/test.hkl",lim_data=None, check_num_rep = False)
+
+        test_set = tf.data.Dataset.from_generator(testgen_callable, output_types=(output_types, tf.int64), output_shapes = (output_shapes,[]))
+        test_set = test_set.batch(BATCH_SIZE)
+        
+        score = model.predict(test_set)
+        avg_score = avg_score + score
+
+    avg_score = avg_score/NUM_ENSEMBL    
+    test_pred = (avg_score>0.5).astype(int).reshape(-1)
+    outpath = CELL+'/'+TYPE+f'/bootstrap_out_{eval_cell}.png'
+    gt.plot_roc(outpath, f"train = {CELL}; test = {eval_cell}", test_labels, test_pred)
+
+    return outpath
+# def evaluate():
+#     region1_seq, region2_seq, region1_expr, region2_expr, label = load_test_data()#the same format as training data
+#     bag_pred = np.zeros((NUM_ENSEMBL,label.shape[0]))
+#     bag_score = np.zeros((NUM_ENSEMBL,label.shape[0]))
+#     for t in range(NUM_ENSEMBL):
+#         model.load_weights('./models_'+time_append+'/best_model_'+str(t)+'.h5')
+#         score = model.predict([region1_seq, region2_seq, region1_expr, region2_expr], batch_size = 100)
+#         bag_pred[t,:] = (score > 0.5).astype(int).reshape(-1)
+#         bag_score[t,:] = score.reshape(-1)
+#     f1, auprc = bag_pred(label, bag_pred, bag_score)
+#     return f1, auprc
 
 
 ############################ MAIN ###############################
@@ -272,3 +320,11 @@ train()
 
 # split_train_val_bootstrap()
 
+
+# bootstrap_time = ['20201030-102007', '20201030-062033', '20201030-052652', '20201029-140022', '20201029-100734', 
+#     '20201029-080806', '20201029-052739', '20201029-045235', '20201029-003927', '20201028-050134', '20201028-025051', 
+#     '20201028-021157', '20201028-001550', '20201027-194725', '20201027-143432', '20201026-133133', '20201026-132933', 
+#     '20201026-133436', '20201026-131102', '20201026-131111', '20201023-150244', '20201023-150253', '20201023-143322', 
+#     '20201023-142612', '20201023-142204', '20201023-142053']
+# EVAL_CELL = sys.argv[4]
+# evaluate(EVAL_CELL, bootstrap_time)
