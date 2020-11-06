@@ -3,6 +3,7 @@
 
 import sys
 import os, re
+import time
 import random
 import itertools
 import datetime
@@ -239,6 +240,7 @@ def train():
     print(tf.test.gpu_device_name())
 
     VAL_FRAC = 0.2
+    time.sleep(np.random.uniform(np.random.uniform(high=3.0))) #avoid file lock for .hkl files
     train_index = hkl.load(CELL+'/'+TYPE+'/train.hkl')
     random_perm = np.random.permutation(range(len(train_index)))
     valsize = int(len(train_index)*VAL_FRAC)
