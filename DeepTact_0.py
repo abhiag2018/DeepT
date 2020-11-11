@@ -7,6 +7,7 @@ import time
 import random
 import itertools
 import datetime
+import string
 import numpy as np
 import hickle as hkl
 from sklearn import metrics
@@ -314,7 +315,7 @@ def evaluate(eval_cell, bootstrap_time):
 
 ############################ MAIN ###############################
 BATCH_SIZE=32
-time_append = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+time_append = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+'-'+''.join(random.choices(string.ascii_uppercase + string.digits,k=10))
 os.makedirs(CELL+'/'+TYPE+'/models_'+time_append, exist_ok=True)
 LOG_DIR = CELL+'/'+TYPE+"/logs_" + time_append
 os.makedirs(LOG_DIR, exist_ok=True)
