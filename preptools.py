@@ -451,7 +451,11 @@ def getBamCounts(bam_file, chrom, chromLen, outputf = None):
         chromLen : scalar int
     """
     cr = crpb.CountReadsPerBin([bam_file], binLength=1, stepSize=1)
-    arr = cr.count_reads_in_region(chrom, 0, chromLen)[0]
+    try:
+        arr = cr.count_reads_in_region(chrom[3:], 0, chromLen)[0]
+    except NameError:
+        arr = cr.count_reads_in_region(chrom, 0, chromLen)[0]
+
     if outputf:
         np.savez(outputf, count=arr)
         # np.load(outputf,allow_pickle=True)['count']
