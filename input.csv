@@ -1,0 +1,4 @@
+celltype,repetition,bam
+nCD4,1,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/nCD4_nature2018/naiveCD4_R1.mLb.clN.sorted.bam
+nCD4,2,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/nCD4_nature2018/naiveCD4_R2.mLb.clN.sorted.bam
+nCD4,3,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/nCD4_nature2018/naiveCD4_R3.mLb.clN.sorted.bam
