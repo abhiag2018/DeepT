@@ -36,7 +36,7 @@ def convertBAM_to_Array(args, dnaseTmpDir, bamfilesInit, all_chrom, chromLenDict
     # chromLenDict = prep.chromLen_GRCh37v13
     # dnaseTmpDir = prep.dnaseTmpDir
 
-    tasklist = list(itertools.product(prep.bamfilesInit,['chr'+ch for ch in prep.all_chrom]))[:task_limit]
+    tasklist = list(itertools.product(bamfilesInit,['chr'+ch for ch in all_chrom]))[:task_limit]
 
     saveArray = lambda bam_file, chrom :pt.getBamCounts(bam_file, chrom, chromLenDict[chrom], outputf = f"{dnaseTmpDir(bam_file)}/{chrom}.npz")
 
@@ -79,7 +79,7 @@ def genDNaseProfile(dnaseTmpDir, bamfilesInit, all_chrom, bed_path, bg_path, hea
         # np.load(f"{tmpBamDir}/{output_fn}.npz",allow_pickle=True)['expr']
         return 0
 
-    tasklist = [prep.dnaseTmpDir(f) for f in prep.bamfilesInit]
+    tasklist = [dnaseTmpDir(f) for f in bamfilesInit]
 
     args.nTasks = min(args.nTasks,len(tasklist))
 
@@ -110,8 +110,6 @@ if __name__=="__main__":
     bamfsInit = prep.bamfilesInit
 
     all_chrom = prep.all_chrom
-
-    reRun = prep.reRun
 
     if args.taskType=="genIndex":
         generateIndex(args, bamfsInit)
