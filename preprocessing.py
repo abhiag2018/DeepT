@@ -10,7 +10,7 @@ import glob
 import pandas as pd
 
 import preptools as pt
-from parameters import baseDataDir, tmpBaseDir, codeTmpDir, bgWindow, promoter, enhancer, bamfilesInit, bamDir, clearRun, reRun, hg19, hicTSV, gtf, DnaseCells
+from parameters import baseDataDir, tmpBaseDir, codeTmpDir, bgWindow, promoter, enhancer, bamfilesInit, clearRun, reRun, hg19, hicTSV, gtf, DnaseCells
 
 
 ## promoter parameters
@@ -34,6 +34,8 @@ dnaseTmpDir = lambda bamf: f"""{tmpBaseDir}/{os.path.basename(bamf).split(".")[0
 
 all_chrom = [str(i) for i in range(1,23)]+list('XY')
 chromLen_GRCh37v13 = {'chr1':249250621, 'chr2':243199373, 'chr3':198022430, 'chr4':191154276, 'chr5':180915260, 'chr6':171115067, 'chr7':159138663, 'chr8':146364022, 'chr9':141213431, 'chr10':135534747, 'chr11':135006516, 'chr12':133851895, 'chr13':115169878, 'chr14':107349540, 'chr15':102531392, 'chr16':90354753, 'chr17':81195210, 'chr18':78077248, 'chr19':59128983, 'chr20':63025520, 'chr21':48129895, 'chr22':51304566, 'chrX':155270560, 'chrY':59373566}
+chromLen_GRCh38v13 = {'chr1':248956422, 'chr2':242193529, 'chr3':198295559, 'chr4':190214555, 'chr5':181538259, 'chr6':170805979, 'chr7':159345973, 'chr8':145138636, 'chr9':138394717, 'chr10':133797422, 'chr11':135086622, 'chr12':133275309, 'chr13':114364328, 'chr14':107043718, 'chr15':101991189, 'chr16':90338345, 'chr17':83257441, 'chr18':80373285, 'chr19':58617616, 'chr20':64444167, 'chr21':46709983, 'chr22':50818468, 'chrX':156040895, 'chrY':57227415}
+
 chromAppend = lambda chrom:f"REF_chr{chrom}" # default for bamtools split
 bamfiles = list(itertools.chain.from_iterable(glob.glob(f"""{os.path.dirname(bamf)}/*.{chromAppend('*')}.bam""") for bamf in bamfilesInit))
 
@@ -100,8 +102,8 @@ if __name__=="__main__":
 
     if args.taskType == "prepBam":
         for bam_file in bamfilesInit:
-            pt.makedirs(dnaseTmpDir(bam_file),exist_ok=not clean_run)
-    pt.makedirs(tmpBaseDir_hic,exist_ok=not clean_run)
+            pt.makedirs(dnaseTmpDir(bam_file), exist_ok=not clean_run)
+        pt.makedirs(tmpBaseDir_hic,exist_ok=not clean_run)
     
 
     if args.taskType=="prepPr":

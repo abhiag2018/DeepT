@@ -211,9 +211,9 @@ def split_train_val_bootstrap(test=0.2):
     hkl.dump(test_index, CELL+'/'+TYPE+'/test.hkl')
     return 0
 
-def bagging():
-    traingen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data", f"{LOG_DIR}/train.hkl",lim_data=None, check_num_rep = False)
-    valgen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data", f"{LOG_DIR}/val.hkl",lim_data=None, check_num_rep = False)
+def bagging(lim_data=None):
+    traingen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data", f"{LOG_DIR}/train.hkl",lim_data=lim_data, check_num_rep = False)
+    valgen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data", f"{LOG_DIR}/val.hkl",lim_data=lim_data, check_num_rep = False)
     output_types = {'enh_seq':tf.float64, 'pr_seq':tf.float64, 'enh_dnase':tf.float64, 'pr_dnase':tf.float64}
     output_shapes = {'enh_seq':[1,NUM_SEQ,RESIZED_LEN], 'pr_seq':[1,NUM_SEQ,1000], 'enh_dnase':[1,NUM_REP,RESIZED_LEN], 'pr_dnase':[1,NUM_REP,1000]}
     train_set = tf.data.Dataset.from_generator(traingen_callable, output_types=(output_types, tf.int64), output_shapes = (output_shapes,[]))
@@ -235,7 +235,7 @@ def bagging():
     print('fitting...')
     model.fit(train_set, validation_data=val_set, epochs = 40, callbacks = [modelCheckpoint,tensorboard_callback])
 
-def train():
+def train(lim_data=None):
     ### CHECK GPU usage
     print(tf.config.list_physical_devices('GPU'))
     print(tf.test.gpu_device_name())
@@ -251,7 +251,7 @@ def train():
     hkl.dump(train_index, LOG_DIR+'/train.hkl')
     hkl.dump(val_index, LOG_DIR+'/val.hkl')
 
-    bagging()
+    bagging(lim_data=lim_data)
 
 
 ########################### Evaluation ##########################
@@ -319,7 +319,7 @@ time_append = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+'-'+''.join(rand
 os.makedirs(CELL+'/'+TYPE+'/models_'+time_append, exist_ok=True)
 LOG_DIR = CELL+'/'+TYPE+"/logs_" + time_append
 os.makedirs(LOG_DIR, exist_ok=True)
-train()
+train(lim_data=1000)
 
 # split_train_val_bootstrap()
 
