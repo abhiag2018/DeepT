@@ -47,6 +47,7 @@ def convertBAM_to_Array(args, dnaseTmpDir, bamfilesInit, all_chrom, chromLenDict
         func=lambda t:saveArray(*t), num_tasks=len(tasklist),
         dry_run=False)
     return 0
+
     
 def genDNaseProfile(dnaseTmpDir, bamfilesInit, all_chrom, bed_path, bg_path, headers, bgWin, outputf, limit_frame=None):
     """

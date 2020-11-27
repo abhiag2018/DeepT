@@ -177,7 +177,7 @@ def generate_elem_fa(hg19_fa,elem_bed,out_fa="out.fa",dry_run=False):
 
 def process_promoter_bed(promoter_allfield,out_path,all_headers,window=1000):
     # all_headers = ['chrom', 'txStart', 'txEnd', 'name', 'score', 'strand',
-    #        'cdsStart', 'cdsEnd', 'exonCount', 'exonStarts',
+    #        'cdsStart', 'cdsEnd', '--', 'exonCount', 'exonStarts',
     #        'exonEnds']
 
 
@@ -460,6 +460,31 @@ def getBamCounts(bam_file, chrom, chromLen, outputf = None):
         np.savez(outputf, count=arr)
         # np.load(outputf,allow_pickle=True)['count']
     return arr
+
+
+def generate_dnase(chr_list, bed_path, bg_path, headers, bgWin, output_fn):
+    # chr_list = chrom_npz_fileList.split()
+
+    chrData = {}
+    for chr_npz in chr_list:
+        chrom = chr_npz.split(".")[-2]
+        chrData[chrom] = np.load(chr_npz,allow_pickle=True)['count']
+
+    prDF = pd.read_csv(bed_path, delimiter='\t', names=headers)
+    prDF_bg = pd.read_csv(bg_path, delimiter='\t', names=headers)
+    
+    dnase_profile = np.array(prDF.apply(lambda df:chrData[df[0]][df[1]:df[2]].flatten(), axis=1).tolist())
+    bg_profile = np.array(prDF_bg.apply(lambda df:np.sum(chrData[df[0]][df[1]:df[2]]),axis=1).tolist())
+
+    _dnase_profile = np.sum(dnase_profile,axis=1)
+    assert np.sum(_dnase_profile[bg_profile==0])==0
+    assert np.logical_not(np.logical_xor((bg_profile<1), (bg_profile==0))).all()
+    bg_profile[bg_profile==0]=1
+    out = dnase_profile / bg_profile[:,None] * bgWin
+
+    np.savez(f"{output_fn}.npz",expr = out)
+    # np.load(f"{output_fn}.npz",allow_pickle=True)['expr']
+    return 0
 
 def post_process(bg_intersect_out, bg_win, Head, intersect_out, out_dim, out_path):
     """
