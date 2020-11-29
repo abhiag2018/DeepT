@@ -56,12 +56,18 @@ def concat_files(file_list,output_path):
         return 1
     return 0
 
-def splitCSV(input_path, out_paths, readArgs = {}, writeArgs = {}):
+def splitCSV(input_path, out_paths, readArgs = {}, writeArgs = {}, prefix=None, split_num = None, suffix=None):
     """
     split an input csv file into N(=len(out_paths)) parts
     out_paths = [f"output_path_{i}.csv" for i in range(N)] #output path name function
     """
     N = len(out_paths)
+
+    out_paths = []
+    if N==0:
+        for i in range(split_num):
+            out_paths.append(prefix+str(i)+suffix)
+        N = len(out_paths)
 
     df = pd.read_csv(input_path,**readArgs) # reading file
     max_lines = len(df)
@@ -244,7 +250,7 @@ def concat_PCHiC_PE(hicTSV,promoter_dna,enhancer_dna,selectCell='MK',threshold =
     output : csv file with columns, baitPr, baitEnh, oePr, and oeEnh. 
         Corresponding to promoters and enhancers mid site intersecting with the bait and oe regions
     """
-
+    print(selectCell)
     prChrDict =  getChrDict(promoter_dna)
     enhChrDict = getChrDict(enhancer_dna)
 
@@ -609,6 +615,37 @@ def SelectElements_in_TrainingData(cell_trainData, pr_data, enh_data, all_prList
     # np.load(f"{dirDNase}/enhancerTrain.npz", allow_pickle=True)['expr']
     return 0
 
+
+def seperate_data(enhancer_DNA_seq, promoter_DNA_seq, enhancer_DNase, promoter_DNase, enhancer_len, promoter_len, hic_aug, outdir, NUM_SEQ=4):
+    shape1 = (-1, 1, enhancer_len, NUM_SEQ)
+    shape2 = (-1, 1, promoter_len, NUM_SEQ)
+    region1 = np.load(enhancer_DNA_seq)
+    region2 = np.load(promoter_DNA_seq)
+    Tlabel = pd.read_csv(hic_aug)['label']
+    Tregion1_seq = region1['sequence'].reshape(shape1).transpose(0, 1, 3, 2)
+    Tregion2_seq = region2['sequence'].reshape(shape2).transpose(0, 1, 3, 2)
+
+
+    ## load data: DNase
+    region1 = np.load(enhancer_DNase)
+    region2 = np.load(promoter_DNase)
+    Tregion1_expr = region1['expr']
+    NUM_REP = Tregion1_expr.shape[1]
+    shape1 = (-1, 1, NUM_REP, enhancer_len)
+    shape2 = (-1, 1, NUM_REP, promoter_len)
+
+    Tregion1_expr = Tregion1_expr.reshape(shape1)
+    Tregion2_expr = region2['expr'].reshape(shape2)
+
+    NUM = Tlabel.shape[0]
+    os.makedirs(outdir,exist_ok=True)
+    print("saving data..",flush=True)
+    for index in range(NUM):
+        np.savez(outdir+'/'+f"{index}.npz", enh_seq = Tregion1_seq[index]
+                 , pr_seq = Tregion2_seq[index]
+                 , enh_dnase = Tregion1_expr[index]
+                 , pr_dnase = Tregion2_expr[index], label = Tlabel[index])
+    return 0
 
 def npz_to_hdf5(npz_fpath, transform=lambda x:x):
     """save npz file as hdf5"""

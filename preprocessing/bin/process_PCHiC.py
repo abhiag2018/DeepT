@@ -224,6 +224,8 @@ def HiCTrainingNegLabel(hicTSV, cell, th, pos_training, promoter_dna, enhancer_d
     trainData = trainData.astype(TrainLbl)
     if numSamples is None:
         numSamples = trainData.shape[0]
+    else:
+        numSamples = trainData.shape[0]*numSamples
 
     _freq, _bins, _ = plt.hist((trainData.enhancer_start + trainData.enhancer_end)//2  - (trainData.promoter_start + trainData.promoter_end)//2)
     bins = np.concatenate(([LINF], _bins, [RINF]))
