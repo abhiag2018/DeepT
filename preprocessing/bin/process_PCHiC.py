@@ -1,6 +1,7 @@
 import colored_traceback.always
 import sys, os, argparse
 import random, itertools
+import multiprocessing
 
 import matplotlib.pyplot as plt
 
@@ -9,6 +10,7 @@ import pandas as pd
 import gtfparse
 
 import preptools as pt
+
 
 SUBSAMPLE = None
 
@@ -497,11 +499,14 @@ def seperate_data(CELL, TYPE='P-E', NUM_SEQ=4):
     NUM = Tlabel.shape[0]
     os.makedirs(f'{CELL}/{TYPE}/data',exist_ok=True)
     print("saving data..",flush=True)
-    for index in range(NUM):
-        np.savez(CELL+'/'+TYPE+'/data/'+f"{index}.npz", enh_seq = Tregion1_seq[index]
-                 , pr_seq = Tregion2_seq[index]
-                 , enh_dnase = Tregion1_expr[index]
-                 , pr_dnase = Tregion2_expr[index], label = Tlabel[index])
+
+    with multiprocessing.Pool() as pool:
+        pool.map(lambda index:np.savez(CELL+'/'+TYPE+'/data/'+f"{index}.npz", 
+            enh_seq = Tregion1_seq[index] , 
+            pr_seq = Tregion2_seq[index] , 
+            enh_dnase = Tregion1_expr[index] , 
+            pr_dnase = Tregion2_expr[index], 
+            label = Tlabel[index]), range(NUM))
     return 0
 
 if __name__=="__main__":

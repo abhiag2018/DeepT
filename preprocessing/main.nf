@@ -1,5 +1,3 @@
-#! /projects/li-lab/agarwa/conda_envs/cube/bin/nextflow
-
 ch_input_fasta = Channel.fromPath(params.species_genome_fasta)
 ch_chrom_val = Channel.fromList(params.chromList)
 ch_chrLen = Channel.value(params.chromLen_GRCh37v13)
@@ -248,7 +246,7 @@ process SPLIT_HIC {
     path(hic_input) from ch_hic_input1
 
     output:
-    path 'hic?.tsv' into ch_hic_parts mode flatten
+    path 'hic*.tsv' into ch_hic_parts mode flatten
 
     script:
     """
@@ -410,7 +408,31 @@ process GEN_AUGMENTED_LABEL {
 }
 
 ch_hic_augment
-    .into { ch_hic_augment1; ch_hic_augment2; ch_hic_augment3 }
+    .into { ch_hic_augment1; ch_hic_augment3 }
+
+
+// Combining Data : step 0
+process SPLIT_HIC_AUG{
+    input:
+    tuple val(cellType), path(hic_aug) from ch_hic_augment1
+
+    output:
+    tuple val(cellType), path("hic.aug.${cellType}.*.csv") into ch_hic_augment1_ mode flatten
+
+    script:
+    """
+    python -c "import preptools as pt; \
+    pt.splitCSV('$hic_aug', \
+        [], \
+        readArgs = {}, \
+        writeArgs = {'header':True}, prefix='hic.aug.${cellType}.', \
+        split_num=$params.hic_split_combine, \
+        suffix='.csv')"
+    """
+}
+
+ch_hic_augment1_
+    .into { ch_hic_augment2_split; ch_hic_augment1_split }
 
 ch_enhancer_COscore
     .combine( ch_enhancer_bed_prep3 )
@@ -422,12 +444,13 @@ ch_promoter_COscore
 
 ch_enhancer_COscore_bedprep
     .join( ch_promoter_COscore_bedprep, by:[0,1] )
-    .combine(ch_hic_augment1, by:0)
+    .combine(ch_hic_augment1_split, by:0)
     .set{ ch_hic_COscore }
 
-// Combining Data : step 1
+// Combining Data : step 1.1
 // combine PCHi-C interactions to get CO score for each element in the list
 process COMBINE_PCHIC_CO_SCORE {
+    label 'bigmem'
     input:
     tuple val(cellType), val(rep), \
         path(enhancer_COscore), path(enhancer_bed), path(enhancer_bg), \
@@ -435,34 +458,102 @@ process COMBINE_PCHIC_CO_SCORE {
         path(hic_aug) from ch_hic_COscore
 
     output:
-    tuple val(cellType), val(rep), path("enhancer_hic.${cellType}.rep${rep}.npz"), path("promoter_hic.${cellType}.rep${rep}.npz") into ch_hic_features_COscore
+    tuple val(cellType), val(rep), path("enhancer_hic.${cellType}.*.rep${rep}.h5"), path("promoter_hic.${cellType}.*.rep${rep}.h5") into ch_hic_features_COscore
 
     script:  
     """
     python -c "import preptools as pt; \
     import pandas as pd; \
     import numpy as np; \
+    num='$hic_aug'.split('.')[-2]; \
     pt.SelectElements_in_TrainingData('$hic_aug', 
         np.load('$promoter_COscore',allow_pickle=True)['expr'],
         np.load('$enhancer_COscore',allow_pickle=True)['expr'],
         pd.read_csv('$promoter_bed', delimiter='\t', names=$params.promoter_headers).name, 
         pd.read_csv('$enhancer_bed', delimiter='\t', names=$params.enhancer_headers).name, 
-        'promoter_hic.${cellType}.rep${rep}.npz',
-        'enhancer_hic.${cellType}.rep${rep}.npz', 
+        f'promoter_hic.${cellType}.{num}.rep${rep}.npz',
+        f'enhancer_hic.${cellType}.{num}.rep${rep}.npz', 
         'expr', 
         skip_assert = True)"
 
+    python -c "import numpy as np; \
+    import h5py; \
+    num='$hic_aug'.split('.')[-2]; \
+    A = np.load(f'enhancer_hic.${cellType}.{num}.rep${rep}.npz', allow_pickle=True)['expr']; \
+    with h5py.File(f'enhancer_hic.${cellType}.{num}.rep${rep}.h5', 'w') as h5f:
+        h5f.create_dataset('data', data=A)"
+
+    python -c "import numpy as np; \
+    import h5py; \
+    num='$hic_aug'.split('.')[-2]; \
+    A = np.load(f'promoter_hic.${cellType}.{num}.rep${rep}.npz', allow_pickle=True)['expr']; \
+    with h5py.File(f'promoter_hic.${cellType}.{num}.rep${rep}.h5', 'w') as h5f:
+        h5f.create_dataset('data', data=A)"
+    """ 
+}
+
+ch_hic_features_COscore
+    .groupTuple(by:[0,1])
+    .into{ ch_hic_features_COscore_1; ch_hic_features_COscore_2 }
+
+// Combining Data : step 1.2a
+// combine PCHi-C interactions to get CO score for each element in the list
+process COMBINE_PCHIC_CO_SCORE_ENH {
+    label 'bigmem'
+    input:
+    tuple val(cellType), val(rep), path(enhancer_rep_dat), path(promoter_rep_dat) from ch_hic_features_COscore_1
+
+
+    output:
+    tuple val(cellType), val(rep), path("enhancer_hic.${cellType}.rep${rep}.npz") into ch_hic_features_COscore__1
+
+    script:  
+    """
+    python -c "import numpy as np; 
+    L = '$enhancer_rep_dat'.split()
+    L.sort()
+    h5f = list(map(lambda file_name:h5py.File(file_name,'r'), L) )
+    arr_list = list(map(lambda f:f['data'], h5f))
+    arr_list = np.concatenate(arr_list, axis=0);
+    list(map(lambda f:f.close(), h5f))
+    np.savez(f'enhancer_hic.${cellType}.rep${rep}.npz', **{'expr':arr_list})"
+    """ 
+}
+
+// Combining Data : step 1.2b
+// combine PCHi-C interactions to get CO score for each element in the list
+process COMBINE_PCHIC_CO_SCORE_PR {
+    label 'bigmem'
+    input:
+    tuple val(cellType), val(rep), path(enhancer_rep_dat), path(promoter_rep_dat) from ch_hic_features_COscore_2
+
+
+    output:
+    tuple val(cellType), val(rep), path("promoter_hic.${cellType}.rep${rep}.npz") into ch_hic_features_COscore__2
+
+    script:  
+    """
+    python -c "import numpy as np; 
+    L = '$promoter_rep_dat'.split()
+    L.sort()
+    h5f = list(map(lambda file_name:h5py.File(file_name,'r'), L) )
+    arr_list = list(map(lambda f:f['data'], h5f))
+    arr_list = np.concatenate(arr_list, axis=0);
+    list(map(lambda f:f.close(), h5f))
+    np.savez(f'promoter_hic.${cellType}.rep${rep}.npz', **{'expr':arr_list})"
     """ 
 }
 
 
-ch_hic_features_COscore
+ch_hic_features_COscore__1
+    .join(ch_hic_features_COscore__2, by:[0,1])
     .groupTuple(by: 0)
     .set { ch_hic_features_COscore_reps }
 
-// Combining Data : step 2
+// Combining Data : step 1.3
 // combine PCHi-C interactions to get CO score for each element in the list
 process COMBINE_CO_SCORE_REPS {
+    label 'bigmem'
     publishDir "${params.outdir}/pchic", mode: params.publish_dir_mode
 
     input:
@@ -474,61 +565,311 @@ process COMBINE_CO_SCORE_REPS {
     script:  
     """
     python -c "import process_PCHiC as pchic; \
-    pchic.combine_DNase('$enhancer_COscore_reps'[1:-1].split(', '), 'enhancer_hic_COscore.${cellType}.npz');
-    pchic.combine_DNase('$promoter_COscore_reps'[1:-1].split(', '), 'promoter_hic_COscore.${cellType}.npz')"
+    pchic.combine_DNase(sorted('$enhancer_COscore_reps'[1:-1].split(', ')), 'enhancer_hic_COscore.${cellType}.npz');
+    pchic.combine_DNase(sorted('$promoter_COscore_reps'[1:-1].split(', ')), 'promoter_hic_COscore.${cellType}.npz')"
     """ 
 }
 
-// tuple val(cellType), path(hic_aug) from ch_hic_augment2
-// tuple path(enhancer_DNAseq), path(promoter_DNAseq) from ch_regElement_DNAseq3
-// tuple path(promoter_bed), path(promoter_bg)  from ch_promoter_bed_prep4
-// tuple path(enhancer_bed), path(enhancer_bg)  from ch_enhancer_bed_prep4
-
-ch_hic_augment2
+ch_hic_augment2_split
     .combine(ch_regElement_DNAseq3)
     .combine(ch_enhancer_bed_prep4)
     .combine(ch_promoter_bed_prep4)
     .set{ ch_hic_DNA_seq }
 
-// Combining Data : step 3
+// Combining Data : step 2.1
 // combine PCHi-C interactions to get DNA sequence for each element in the list
 process COMBINE_PCHIC_DNA_SEQ {
-    publishDir "${params.outdir}/pchic", mode: params.publish_dir_mode
+    label 'bigCpuMem'
 
     input:
     tuple val(cellType), path(hic_aug), path(enhancer_DNAseq), path(promoter_DNAseq), path(enhancer_bed), path(enhancer_bg), path(promoter_bed), path(promoter_bg)  from ch_hic_DNA_seq
 
     output:
-    tuple val(cellType), path("enhancer_hic_DNA_seq.${cellType}.npz"), path("promoter_hic_DNA_seq.${cellType}.npz") into ch_hic_DNA_seq_features_out
+    tuple val(cellType), path("enhancer_hic.${cellType}.*.DNA_seq.h5"), path("promoter_hic.${cellType}.*.DNA_seq.h5") into ch_hic_DNA_seq_features_out
 
     script:  
     """
-    python -c "import preptools as pt; \
-    import numpy as np; \
-    import pandas as pd; \
-    reshapeDNA = lambda x:x.reshape(-1,x.shape[-1]//4,4) ;\
-    pt.SelectElements_in_TrainingData('$hic_aug', 
-            reshapeDNA(np.load('$promoter_DNAseq', allow_pickle=True)['sequence']),
-            reshapeDNA(np.load('$enhancer_DNAseq', allow_pickle=True)['sequence']),
-            pd.read_csv('$promoter_bed', delimiter='\t', names=$params.promoter_headers).name, 
-            pd.read_csv('$enhancer_bed', delimiter='\t', names=$params.enhancer_headers).name, 
-            'promoter_hic_DNA_seq.${cellType}.npz',
-            'enhancer_hic_DNA_seq.${cellType}.npz', 
-            'sequence', 
-            transform = lambda x:x.reshape(-1,x.shape[-1]*x.shape[-2]),
-            skip_assert = True)"
+    python -c "import preptools as pt
+    import numpy as np
+    import pandas as pd
+    import h5py
+    reshapeDNA = lambda x:x.reshape(-1,x.shape[-1]//4,4)
+    num = '$hic_aug'.split('.')[-2]
+    pt.SelectElements_in_TrainingData('$hic_aug', \
+            reshapeDNA(np.load('$promoter_DNAseq', allow_pickle=True)['sequence']), \
+            reshapeDNA(np.load('$enhancer_DNAseq', allow_pickle=True)['sequence']), \
+            pd.read_csv('$promoter_bed', delimiter='\t', names=$params.promoter_headers).name, \
+            pd.read_csv('$enhancer_bed', delimiter='\t', names=$params.enhancer_headers).name, \
+            f'promoter_hic.${cellType}.{num}.DNA_seq.npz', \
+            f'enhancer_hic.${cellType}.{num}.DNA_seq.npz', \
+            'sequence', \
+            transform = lambda x:x.reshape(-1,x.shape[-1]*x.shape[-2]), \
+            skip_assert = True)
+    A = np.load('enhancer_hic.${cellType}.{num}.DNA_seq.npz', allow_pickle=True)['sequence']
+    with h5py.File('enhancer_hic.${cellType}.{num}.DNA_seq.h5', 'w') as h5f:
+        h5f.create_dataset('data', data=A)
+    A = np.load('promoter_hic.${cellType}.{num}.DNA_seq.npz', allow_pickle=True)['sequence']
+    with h5py.File('promoter_hic.${cellType}.{num}.DNA_seq.h5', 'w') as h5f:
+        h5f.create_dataset('data', data=A)
+    "
     """ 
 }
 
+// ch_hic_DNA_seq_features_out
+//     .into{ ch_hic_DNA_seq_features_out_1; ch_hic_DNA_seq_features_out_2 }
+
+// // Combining Data : step 2.2.1.0a
+// process COMBINE_PCHIC_DNA_SEQ_ENHANCER_0 {
+//     label 'bigmem'
+    
+//     input:
+//     tuple val(cellType), path(enhancer_rep_npz), path(promoter_rep_npz) from ch_hic_DNA_seq_features_out_1
+
+//     output:
+//     tuple val(cellType), path("*.h5") into ch_hic_enhDNA_seq_features_out_
+
+//     script:
+//     """
+//     python -c "import numpy as np;
+//     import h5py
+//     A = np.load('$enhancer_rep_npz', allow_pickle=True)['sequence']
+//     with h5py.File('.'.join('$enhancer_rep_npz'.split('.')[:-1])+'.h5', 'w') as h5f:
+//         h5f.create_dataset('data', data=A)"
+//     """
+// }
+
+// // Combining Data : step 2.2.1.0b
+// process COMBINE_PCHIC_DNA_SEQ_PROMOTER_0 {
+//     label 'bigmem'
+
+//     input:
+//     tuple val(cellType), path(enhancer_rep_npz), path(promoter_rep_npz) from ch_hic_DNA_seq_features_out_2
+
+//     output:
+//     tuple val(cellType), path("*.h5") into ch_hic_prDNA_seq_features_out_
+
+//     script:
+//     """
+//     python -c "import numpy as np;
+//     import h5py
+//     A = np.load('$promoter_rep_npz', allow_pickle=True)['sequence']
+//     with h5py.File('.'.join('$promoter_rep_npz'.split('.')[:-1])+'.h5', 'w') as h5f:
+//         h5f.create_dataset('data', data=A)"
+//     """
+// }
+
+
+// ch_hic_enhDNA_seq_features_out_
+//     .groupTuple(by:0)
+//     .set { ch_hic_enhDNA_seq_features_out_1 }
+
+// ch_hic_prDNA_seq_features_out_
+//     .groupTuple(by:0)
+//     .set { ch_hic_prDNA_seq_features_out_1 }
+
+ch_hic_DNA_seq_features_out
+    .groupTuple(by:0)
+    .into { ch_hic_enhDNA_seq_features_out_1; ch_hic_prDNA_seq_features_out_1 }
+
+// Combining Data : step 2.2a
+process COMBINE_PCHIC_OUT_ENHANCER {
+    label 'bigmem'
+    publishDir "${params.outdir}/pchic", mode: params.publish_dir_mode
+
+    input:
+    tuple val(cellType), path(enhancer_rep_dat), path(promoter_rep_dat) from ch_hic_enhDNA_seq_features_out_1
+
+    output:
+    tuple val(cellType), path("enhancer_hic.${cellType}.DNA_seq.npz") into ch_hic_enhDNA_seq_features_out_1_
+
+    script:
+    """
+    python -c "import numpy as np; 
+    import h5py
+    L=$enhancer_rep_dat.split()
+    L.sort()
+    h5f = list(map(lambda file_name:h5py.File(file_name,'r'), L) )
+    arr_list = list(map(lambda f:f['data'], h5f))
+    arr_list = np.concatenate(arr_list, axis=0);
+    list(map(lambda f:f.close(), h5f))
+    np.savez('enhancer_hic.${cellType}.DNA_seq.npz', **{'sequence':arr_list})"
+    """
+}
+
+// Combining Data : step 2.2b
+process COMBINE_PCHIC_OUT_PROMOTER {
+    label 'bigmem'
+    publishDir "${params.outdir}/pchic", mode: params.publish_dir_mode
+
+    input:
+    tuple val(cellType), path(enhancer_rep_dat), path(promoter_rep_dat) from ch_hic_prDNA_seq_features_out_1
+
+    output:
+    tuple val(cellType), path("promoter_hic.${cellType}.DNA_seq.npz") into ch_hic_prDNA_seq_features_out_1_
+
+    script:
+    """
+    python -c "import numpy as np; 
+    import h5py
+    L=$promoter_rep_dat.split()
+    L.sort()
+    h5f = list(map(lambda file_name:h5py.File(file_name,'r'), L) )
+    arr_list = list(map(lambda f:f['data'], h5f))
+    arr_list = np.concatenate(arr_list, axis=0);
+    list(map(lambda f:f.close(), h5f))
+    np.savez('promoter_hic.${cellType}.DNA_seq.npz', **{'sequence':arr_list})"
+    """
+}
+
 ch_hic_COscore_features_out
-    .join( ch_hic_DNA_seq_features_out, by:0 )
+    .into{ch_hic_COscore_features_out_1; ch_hic_COscore_features_out_2}
+// ch_hic_enhDNA_seq_features_out_1_
+//     .join(ch_hic_prDNA_seq_features_out_1_, by:0)
+//     .set{ ch_hic_DNA_seq_features_out_ }
+
+// ch_hic_COscore_features_out
+//     .join( ch_hic_DNA_seq_features_out_, by:0 )
+//     .join( ch_hic_augment3, by:0 )
+//     .set{ ch_hic_features_out }
+
+// // Combining Data : step 3
+// // separate the data in ch_hic_DNA_seq_features_out_, ch_hic_COscore_features_out into data points
+// process SEPARATE_DATA {
+//     label 'bigCpuMem'
+//     publishDir "${params.outdir}/pchic", mode: params.publish_dir_mode
+
+//     input:
+//     tuple val(cellType), path(enhancer_hic_CO), path(promoter_hic_CO), path(enhancer_hic_DNAseq), path(promoter_hic_DNAseq), path(hic_aug) from ch_hic_features_out
+
+//     output:
+//     tuple val(cellType), path("features.${cellType}.tar.gz") into ch_hic_features_tar_out
+
+//     script:  
+//     """
+//     python -c "import preptools as pt; \
+//     pt.seperate_data_0('$enhancer_hic_DNAseq', \
+//         '$promoter_hic_DNAseq', \
+//         '$enhancer_hic_CO', \
+//         '$promoter_hic_CO', \
+//         $params.enhancer_window, \
+//         $params.promoter_window, \
+//         '$hic_aug', \
+//         'data', NUM_SEQ=4)"
+//     tar -zcf features.${cellType}.tar.gz data
+//     """ 
+// }
+
+
+// Combining Data : step 3.1a
+// separate the data in ch_hic_DNA_seq_features_out_, ch_hic_COscore_features_out into data points
+process SAVE_ENH_DNA_SEQ {
+    label 'bigmem'
+    // publishDir "${params.outdir}/pchic", mode: params.publish_dir_mode
+
+    input:
+    tuple val(cellType), path(enhancer_hic_DNAseq) from ch_hic_enhDNA_seq_features_out_1_
+
+    output:
+    tuple val(cellType), path("enhancer_hic.${cellType}.DNA_seq.h5") into ch_hic_features_enhDnaSeq
+
+    script:  
+    """
+    python -c "import numpy as np; \
+    import h5py; \
+    NUM_SEQ=4; \
+    shape1 = (-1, 1, $params.enhancer_window, NUM_SEQ); \
+    Tregion1_seq = np.load('$enhancer_hic_DNAseq')['sequence'].reshape(shape1).transpose(0, 1, 3, 2); \
+    with h5py.File('enhancer_hic.${cellType}.DNA_seq.h5', 'w') as h5f:
+        h5f.create_dataset('data', data=Tregion1_seq)
+    "
+    """
+}
+
+// Combining Data : step 3.1b
+process SAVE_PR_DNA_SEQ {
+    label 'bigmem'
+    // publishDir "${params.outdir}/pchic", mode: params.publish_dir_mode
+
+    input:
+    tuple val(cellType), path(promoter_hic_DNAseq) from ch_hic_prDNA_seq_features_out_1_
+
+    output:
+    tuple val(cellType), path("promoter_hic.${cellType}.DNA_seq.h5") into ch_hic_features_prDnaSeq
+
+    script:  
+    """
+    python -c "import numpy as np; \
+    NUM_SEQ=4; \
+    shape2 = (-1, 1, $params.promoter_window, NUM_SEQ); \
+    Tregion2_seq = np.load('$promoter_hic_DNAseq')['sequence'].reshape(shape2).transpose(0, 1, 3, 2); \
+    with h5py.File(f'promoter_hic.${cellType}.DNA_seq.h5', 'w') as h5f:
+        h5f.create_dataset('data', data=Tregion2_seq)
+    "
+    """
+}
+
+// Combining Data : step 3.1c
+process SAVE_ENH_CO_SCORE {
+    label 'bigmem'
+    // publishDir "${params.outdir}/pchic", mode: params.publish_dir_mode
+
+    input:
+    tuple val(cellType), path(enhancer_hic_COscore), path(promoter_hic_COscore) from ch_hic_COscore_features_out_1
+
+    output:
+    tuple val(cellType), path("enhancer_hic.${cellType}.CO_score.h5") into ch_hic_features_enhCoScore
+
+    script:  
+    """
+    python -c "import numpy as np; \
+    Tregion1_expr = np.load('$enhancer_hic_COscore')['expr']
+    NUM_REP = Tregion1_expr.shape[1]
+    shape1 = (-1, 1, NUM_REP, $params.enhancer_window); \
+    Tregion1_expr.reshape(shape1)
+    with h5py.File(f'enhancer_hic.${cellType}.CO_score.h5', 'w') as h5f:
+        h5f.create_dataset('data', data=Tregion1_expr)
+    "
+    """
+}
+
+// Combining Data : step 3.1d
+process SAVE_PR_CO_SCORE {
+    label 'bigmem'
+    // publishDir "${params.outdir}/pchic", mode: params.publish_dir_mode
+
+    input:
+    tuple val(cellType), path(enhancer_hic_COscore), path(promoter_hic_COscore) from ch_hic_COscore_features_out_2
+
+    output:
+    tuple val(cellType), path("promoter_hic.${cellType}.CO_score.h5") into ch_hic_features_prCoScore
+
+    script:  
+    """
+    python -c "import numpy as np; \
+    Tregion2_expr = np.load('$promoter_hic_COscore')['expr']
+    NUM_REP = Tregion2_expr.shape[1]
+    shape2 = (-1, 1, NUM_REP, $params.promoter_window); \
+    Tregion2_expr.reshape(shape2)
+    with h5py.File(f'promoter_hic.${cellType}.CO_score.h5', 'w') as h5f:
+        h5f.create_dataset('data', data=Tregion2_expr)
+    "
+    """
+}
+
+
+ch_hic_features_enhCoScore
+    .join(ch_hic_features_prCoScore, by:0)
+    .join(ch_hic_features_enhDnaSeq, by:0)
+    .join(ch_hic_features_prDnaSeq, by:0)
     .join( ch_hic_augment3, by:0 )
     .set{ ch_hic_features_out }
     // .view()
 
-// Combining Data : step 4
-// separate the data in ch_hic_DNA_seq_features_out, ch_hic_COscore_features_out into data points
+
+// Combining Data : step 3.2
+// separate the data in ch_hic_DNA_seq_features_out_, ch_hic_COscore_features_out into data points
 process SEPARATE_DATA {
+    label 'bigCpuMem'
     publishDir "${params.outdir}/pchic", mode: params.publish_dir_mode
 
     input:
@@ -540,25 +881,20 @@ process SEPARATE_DATA {
     script:  
     """
     python -c "import preptools as pt; \
-    pt.seperate_data('$enhancer_hic_DNAseq', \
+    pt.seperate_data_0('$enhancer_hic_DNAseq', \
         '$promoter_hic_DNAseq', \
         '$enhancer_hic_CO', \
         '$promoter_hic_CO', \
         $params.enhancer_window, \
         $params.promoter_window, \
         '$hic_aug', \
-        'data', NUM_SEQ=4)"
+        'data')"
     tar -zcf features.${cellType}.tar.gz data
     """ 
 }
 
 
-
 // result.view { it.trim() }
-
-//out_bed_ch
-//.collectFile(name: 'blast_output_combined.txt', storeDir: params.dataDir)
-
 
 
 

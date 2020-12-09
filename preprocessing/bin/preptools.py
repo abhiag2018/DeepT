@@ -547,7 +547,7 @@ def process_inputArgs(input_parse=sys.argv, argType = {'file_index':None, 'nTask
 
 def SelectElements_in_TrainingData(cell_trainData, pr_data, enh_data, all_prList, all_enhList, prout, enhout, savez_key, transform = lambda x:x, skip_assert = False):
     """
-    check if elements in training data are present in the element list. If yes, then select those elements, and save the inpur features corresponding to those elements
+    check if elements in training data are present in the element list. If yes, then select those elements, and save the input features corresponding to those elements
     input : 
         cell_trainData : training label csv file
         pr_data : input features for promoter
@@ -640,11 +640,43 @@ def seperate_data(enhancer_DNA_seq, promoter_DNA_seq, enhancer_DNase, promoter_D
     NUM = Tlabel.shape[0]
     os.makedirs(outdir,exist_ok=True)
     print("saving data..",flush=True)
-    for index in range(NUM):
-        np.savez(outdir+'/'+f"{index}.npz", enh_seq = Tregion1_seq[index]
-                 , pr_seq = Tregion2_seq[index]
-                 , enh_dnase = Tregion1_expr[index]
-                 , pr_dnase = Tregion2_expr[index], label = Tlabel[index])
+
+    def npz_save(index):
+        np.savez(outdir+'/'+f"{index}.npz", enh_seq = Tregion1_seq[index] , pr_seq = Tregion2_seq[index] , enh_dnase = Tregion1_expr[index] , pr_dnase = Tregion2_expr[index], label = Tlabel[index])
+        return 0
+
+    with multiprocessing.Pool() as pool:
+        pool.map(npz_save, range(NUM))
+
+    return 0
+
+def seperate_data_0(enhancer_DNA_seq, promoter_DNA_seq, enhancer_DNase, promoter_DNase, enhancer_len, promoter_len, hic_aug, outdir):
+    Tlabel = pd.read_csv(hic_aug)['label']
+
+    with h5py.File(enhancer_DNA_seq,'r') as h5f:
+        Tregion1_seq = h5f['data']
+    with h5py.File(promoter_DNA_seq,'r') as h5f:
+        Tregion2_seq = h5f['data']
+
+    ## load data: DNase
+    with h5py.File(enhancer_DNase,'r') as h5f:
+        Tregion1_expr = h5f['data']
+    with h5py.File(promoter_DNase,'r') as h5f:
+        Tregion2_expr = h5f['data']
+
+
+    NUM = Tlabel.shape[0]
+    os.makedirs(outdir,exist_ok=True)
+    print("saving data..",flush=True)
+
+
+    def npz_save(index):
+        np.savez(outdir+'/'+f"{index}.npz", enh_seq = Tregion1_seq[index] , pr_seq = Tregion2_seq[index] , enh_dnase = Tregion1_expr[index] , pr_dnase = Tregion2_expr[index], label = Tlabel[index])
+        return 0
+
+    with multiprocessing.Pool() as pool:
+        pool.map(npz_save, range(NUM))
+
     return 0
 
 def npz_to_hdf5(npz_fpath, transform=lambda x:x):

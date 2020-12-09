@@ -9,4 +9,5 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate cube
 
 ###
-nextflow run main.sh -resume
+resumeDir=$1
+nextflow run preprocessing -profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -resume $resumeDir
