@@ -1,15 +1,16 @@
-# Intro
+# Introduction
 
 Preprocess/generate input features and training labels for DeepTact. 
 
-To run:
-	sbatch run_deeptact_prep.sh <resume-session-id>
-The session-id can be found by running command : *nextflow log*
+To run:  
+	`sbatch run_deeptact_prep.sh <resume-session-id>`    
+The session-id can be found with `nextflow log`.
 
 
-# Input Params and Files
+# Input Parameters and Files
 
-The input file path is specified in the nextflow config file parameters. The input .bam files for DNase/ATAC-seq input are specified separately in a .csv specified in *params.coScore_data*
+The input file paths are specified in the nextflow config file parameters.  
+The input .bam files for DNase/ATAC-seq input are specified separately in a .csv specified in *params.coScore_data*
 
 
 # Preprocessing Steps
