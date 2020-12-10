@@ -605,10 +605,10 @@ process COMBINE_PCHIC_DNA_SEQ {
             'sequence', \
             transform = lambda x:x.reshape(-1,x.shape[-1]*x.shape[-2]), \
             skip_assert = True)
-    A = np.load('enhancer_hic.${cellType}.{num}.DNA_seq.npz', allow_pickle=True)['sequence']
+    A = np.load(f'enhancer_hic.${cellType}.{num}.DNA_seq.npz', allow_pickle=True)['sequence']
     with h5py.File('enhancer_hic.${cellType}.{num}.DNA_seq.h5', 'w') as h5f:
         h5f.create_dataset('data', data=A)
-    A = np.load('promoter_hic.${cellType}.{num}.DNA_seq.npz', allow_pickle=True)['sequence']
+    A = np.load(f'promoter_hic.${cellType}.{num}.DNA_seq.npz', allow_pickle=True)['sequence']
     with h5py.File('promoter_hic.${cellType}.{num}.DNA_seq.h5', 'w') as h5f:
         h5f.create_dataset('data', data=A)
     "
