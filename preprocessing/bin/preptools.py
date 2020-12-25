@@ -6,6 +6,7 @@ import copy
 import bisect
 import math
 import itertools
+import multiprocessing
 import csv
 import pickle
 import h5py
@@ -650,33 +651,44 @@ def seperate_data(enhancer_DNA_seq, promoter_DNA_seq, enhancer_DNase, promoter_D
 
     return 0
 
-def seperate_data_0(enhancer_DNA_seq, promoter_DNA_seq, enhancer_DNase, promoter_DNase, enhancer_len, promoter_len, hic_aug, outdir):
+def npz_save(out_npz, enh_seq_data, pr_seq_data, enh_dnase_data, pr_dnase_data, label_data):
+    np.savez(out_npz, enh_seq = enh_seq_data , pr_seq = pr_seq_data , enh_dnase = enh_dnase_data , pr_dnase = pr_dnase_data, label = label_data)
+    return 0
+
+def seperate_data_0(enhancer_DNA_seq, promoter_DNA_seq, enhancer_DNase, promoter_DNase, enhancer_len, promoter_len, hic_aug, outdir, load_rows = 100000):
     Tlabel = pd.read_csv(hic_aug)['label']
 
-    with h5py.File(enhancer_DNA_seq,'r') as h5f:
-        Tregion1_seq = h5f['data']
-    with h5py.File(promoter_DNA_seq,'r') as h5f:
-        Tregion2_seq = h5f['data']
+    h5f_enhDNAseq = h5py.File(enhancer_DNA_seq,'r')
+    Tregion1_seq = h5f_enhDNAseq['data']
+
+    h5f_prDNAseq = h5py.File(promoter_DNA_seq,'r')
+    Tregion2_seq = h5f_prDNAseq['data']
+
 
     ## load data: DNase
-    with h5py.File(enhancer_DNase,'r') as h5f:
-        Tregion1_expr = h5f['data']
-    with h5py.File(promoter_DNase,'r') as h5f:
-        Tregion2_expr = h5f['data']
+    h5f_enhDNase = h5py.File(enhancer_DNase,'r')
+    Tregion1_expr = h5f_enhDNase['data']
+
+    h5f_prDNase = h5py.File(promoter_DNase,'r')
+    Tregion2_expr = h5f_prDNase['data']
+
 
 
     NUM = Tlabel.shape[0]
     os.makedirs(outdir,exist_ok=True)
     print("saving data..",flush=True)
 
-
-    def npz_save(index):
-        np.savez(outdir+'/'+f"{index}.npz", enh_seq = Tregion1_seq[index] , pr_seq = Tregion2_seq[index] , enh_dnase = Tregion1_expr[index] , pr_dnase = Tregion2_expr[index], label = Tlabel[index])
-        return 0
-
     with multiprocessing.Pool() as pool:
-        pool.map(npz_save, range(NUM))
+        for i in range(0,NUM,load_rows):
+            print(f"iteration: {i}/{NUM/load_rows:.1f}.. ", end="", flush=True)
+            pool.starmap(npz_save, zip(map(lambda index:outdir+'/'+f"{index}.npz", range(i,min(NUM,i+load_rows))), Tregion1_seq, Tregion2_seq, Tregion1_expr, Tregion2_expr, Tlabel))
+            # pool.starmap(npz_save, zip(map(lambda index:outdir+'/'+f"{index}.npz", range(NUM)), Tregion1_seq, Tregion2_seq, Tregion1_expr, Tregion2_expr, Tlabel))
+            print(" .")
 
+    h5f_enhDNAseq.close()
+    h5f_prDNAseq.close()
+    h5f_enhDNase.close()
+    h5f_prDNase.close()
     return 0
 
 def npz_to_hdf5(npz_fpath, transform=lambda x:x):

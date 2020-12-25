@@ -243,8 +243,8 @@ def train(lim_data=None):
     VAL_FRAC = 0.2
     time.sleep(np.random.uniform(np.random.uniform(high=3.0))) #avoid file lock for .hkl files
     train_index = hkl.load(CELL+'/'+TYPE+'/train.hkl')
-    random_perm = range(len(train_index))
-    # random_perm = np.random.permutation(range(len(train_index)))
+    # random_perm = np.array(range(len(train_index)))
+    random_perm = np.random.permutation(range(len(train_index)))
     valsize = int(len(train_index)*VAL_FRAC)
     val_index = random_perm[0:valsize]
     train_index = random_perm[valsize:]
@@ -266,7 +266,7 @@ def bag_pred(label, bag_pred, bag_score):
     auprc = metrics.average_precision_score(label, vote_score)
     return f1, auprc
 
-def evaluate(eval_cell, bootstrap_time):
+def evaluate(eval_cell, bootstrap_time, limit_data=None, append_str=""):
     eval_cell_path = '/'.join(CELL.split('/')[:-1])+'/'+eval_cell + '/' + TYPE
 
     NUM_ENSEMBL=len(bootstrap_time)
@@ -280,14 +280,14 @@ def evaluate(eval_cell, bootstrap_time):
                   optimizer = optimizers.Adam(lr = 0.00001),
                   metrics = ['acc', f1])
 
-    test_labels = true_labels(f"{eval_cell_path}/data", f"{eval_cell_path}/test.hkl",lim_data=None)
+    test_labels = true_labels(f"{eval_cell_path}/data", f"{eval_cell_path}/test.hkl",lim_data=limit_data)
 
     avg_score = np.zeros((test_labels.shape[0],1))
 
     for time_append in bootstrap_time[:NUM_ENSEMBL]:
         model.load_weights(CELL+'/'+TYPE+f"/models_{time_append}/best_model.h5")
 
-        testgen_callable = lambda:data_gen(f"{eval_cell_path}/data", f"{eval_cell_path}/test.hkl",lim_data=None, check_num_rep = False)
+        testgen_callable = lambda:data_gen(f"{eval_cell_path}/data", f"{eval_cell_path}/test.hkl",lim_data=limit_data, check_num_rep = False)
 
         test_set = tf.data.Dataset.from_generator(testgen_callable, output_types=(output_types, tf.int64), output_shapes = (output_shapes,[]))
         test_set = test_set.batch(BATCH_SIZE)
@@ -296,9 +296,13 @@ def evaluate(eval_cell, bootstrap_time):
         avg_score = avg_score + score
 
     avg_score = avg_score/NUM_ENSEMBL    
-    test_pred = (avg_score>0.5).astype(int).reshape(-1)
-    outpath = CELL+'/'+TYPE+f'/bootstrap_out_{eval_cell}.png'
-    gt.plot_roc(outpath, f"train = {CELL}; test = {eval_cell}", test_labels, test_pred)
+    np.savez( CELL+'/'+TYPE+f'/bootstrap_out_{eval_cell}_predScore_{append_str}.npz', pred_score=avg_score, true_labels=test_labels)
+
+    outpath = CELL+'/'+TYPE+f'/bootstrap_roc_{eval_cell}_{append_str}.png'
+    gt.plot_roc(outpath, f"train = {CELL.split('/')[-1]}; test = {eval_cell}", test_labels, avg_score)
+
+    outpath = CELL+'/'+TYPE+f'/bootstrap_prc_{eval_cell}_{append_str}.png'
+    gt.plot_prc(outpath, f"train = {CELL.split('/')[-1]}; test = {eval_cell}", test_labels, avg_score)
 
     return outpath
 # def evaluate():
@@ -316,11 +320,11 @@ def evaluate(eval_cell, bootstrap_time):
 
 ############################ MAIN ###############################
 BATCH_SIZE=32
-time_append = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+'-'+''.join(random.choices(string.ascii_uppercase + string.digits,k=10))
-os.makedirs(CELL+'/'+TYPE+'/models_'+time_append, exist_ok=True)
-LOG_DIR = CELL+'/'+TYPE+"/logs_" + time_append
-os.makedirs(LOG_DIR, exist_ok=True)
-train(lim_data=1000)
+# time_append = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+'-'+''.join(random.choices(string.ascii_uppercase + string.digits,k=10))
+# os.makedirs(CELL+'/'+TYPE+'/models_'+time_append, exist_ok=True)
+# LOG_DIR = CELL+'/'+TYPE+"/logs_" + time_append
+# os.makedirs(LOG_DIR, exist_ok=True)
+# train(lim_data=1000)
 
 # split_train_val_bootstrap()
 
@@ -330,5 +334,10 @@ train(lim_data=1000)
 #     '20201028-021157', '20201028-001550', '20201027-194725', '20201027-143432', '20201026-133133', '20201026-132933', 
 #     '20201026-133436', '20201026-131102', '20201026-131111', '20201023-150244', '20201023-150253', '20201023-143322', 
 #     '20201023-142612', '20201023-142204', '20201023-142053']
-# EVAL_CELL = sys.argv[4]
-# evaluate(EVAL_CELL, bootstrap_time)
+
+# bootstrap_time = ['20201106-092932', '20201106-092935', '20201110-160151', '20201110-162720', '20201110-173652', 
+#     '20201110-181813', '20201116-153110-8TI7NZ4YV9', '20201116-153942-RHKA9FXYQP', '20201116-153945-9P5RYRN8W8', 
+#     '20201116-154055-34L9UK53CH', '20201116-154118-0B3OLVXQLS', '20201116-154139-798CFGWRVA', '20201120-135722-1CKL4WP6RD']
+bootstrap_time = ['20201116-154055-34L9UK53CH', '20201116-154118-0B3OLVXQLS', '20201116-154139-798CFGWRVA', '20201120-135722-1CKL4WP6RD']
+EVAL_CELL = sys.argv[4]
+evaluate(EVAL_CELL, bootstrap_time, limit_data=None, append_str="bs4_limdata_None")
