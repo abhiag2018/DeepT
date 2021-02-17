@@ -13,7 +13,7 @@ conda activate cube
 NXF_OPTS='-Xms16g -Xmx64g'
 
 resumeDir=$1
-nextflow run preprocessing/main.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -resume $resumeDir
-# nextflow -C preprocessing/nextflow-test.config run preprocessing/main.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work"
+nextflow run main.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -resume $resumeDir
+# nextflow -C nextflow-test.config run main.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work"
 
-# nextflow run preprocessing/main_1.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -resume $resumeDir
+# nextflow run main_1.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -resume $resumeDir
