@@ -2,6 +2,8 @@
 
 Preprocess/generate input features and training labels for DeepTact. 
 
+![DeepTACT Neural Net](DeepTACT.png)
+
 To run:  
 	`sbatch run_deeptact_prep.sh <resume-session-id>`    
 The session-id can be found with `nextflow log`.
@@ -9,8 +11,18 @@ The session-id can be found with `nextflow log`.
 
 # Input Parameters and Files
 
-The input file paths are specified in the nextflow config file parameters.  
+The input file paths are specified in the nextflow config file parameters.
 The input .bam files for DNase/ATAC-seq input are specified separately in a .csv specified in *params.coScore_data*
+
+Input Files for DeepTACT Features :
+	- Promoter/Enhancer Lists, to filter PCHi-C data : params.promoter_bedfile, params.enhancer_bedfile
+	- fasta files, to Extract Genomic Sequence : params.species_genome_fasta
+	- DNase-Seq bam files, to generate COScore (Chromatin Openness Score) for each element in the promoter/enhancer list  : inside file params.coScore_data
+
+
+Input Files for DeepTACT Ground Truth data :
+	- PCHi-C data : params.hic_input
+	- gtf file, to select promoters transcripts corresponding to genes : params.gtf_transcript_to_gene
 
 
 # Preprocessing Steps
@@ -79,6 +91,20 @@ Preprocessing chromatin openness feature :
 - [input] **coScore_data** : .bam files for ATAC/DNase seq data
 
 
+
+# ATAC-seq data
+
+Out of the 6 cell types that we considered for DNase-seq data : 
+- naive CD4+ T Cells
+- monocytes
+- total B cells
+- total CD4+ T cells 
+- total CD8+ T cells
+- fetal thymus cells
+
+Only B cell and total T cell data was found on Encode & 4D nucleome: 
+- https://www.encodeproject.org/matrix/?type=Experiment&assay_title=ATAC-seq&biosample_ontology.cell_slims=T+cell
+- https://www.encodeproject.org/matrix/?type=Experiment&assay_title=ATAC-seq&biosample_ontology.cell_slims=B+cell
 
 
 
