@@ -19,7 +19,9 @@ ch_gtf_input = Channel.fromPath(params.gtf_transcript_to_gene)
 
 // promoter pre-processing
 process PREPROCESS_PROMOTER {
+    storeDir "${params.store_dir}"
     publishDir "${params.outdir}/promoters", mode: params.publish_dir_mode
+
     input:
     path(input) from ch_promoter_bed
 
@@ -47,7 +49,9 @@ process PREPROCESS_PROMOTER {
 
 // enhancer pre-processing
 process PREPROCESS_ENHANCER {
+    storeDir "${params.store_dir}"
     publishDir "${params.outdir}/enhancers", mode: params.publish_dir_mode
+
     input:
     path(input) from ch_enhancer_bed
 
