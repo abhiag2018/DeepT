@@ -6,7 +6,9 @@ Preprocess/generate input features and training labels for DeepTact.
 
 To run:  
 	`sbatch run_deeptact_prep.sh <resume-session-id>`    
-The session-id can be found with `nextflow log`.
+The session-id can be found with `nextflow log`. 
+
+**NOTE** : Files store in code/storeDir are used for promoter and enhancer lists.
 
 
 # Input Parameters and Files
