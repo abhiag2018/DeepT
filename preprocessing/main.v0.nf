@@ -19,9 +19,7 @@ ch_gtf_input = Channel.fromPath(params.gtf_transcript_to_gene)
 
 // promoter pre-processing
 process PREPROCESS_PROMOTER {
-    storeDir "${params.store_dir}"
     publishDir "${params.outdir}/promoters", mode: params.publish_dir_mode
-
     input:
     path(input) from ch_promoter_bed
 
@@ -49,9 +47,7 @@ process PREPROCESS_PROMOTER {
 
 // enhancer pre-processing
 process PREPROCESS_ENHANCER {
-    storeDir "${params.store_dir}"
     publishDir "${params.outdir}/enhancers", mode: params.publish_dir_mode
-
     input:
     path(input) from ch_enhancer_bed
 
@@ -466,14 +462,13 @@ process COMBINE_PCHIC_CO_SCORE {
         path(hic_aug) from ch_hic_COscore
 
     output:
-    tuple val(cellType), val(rep), path("enhancer_hic.${cellType}.*.rep${rep}.h5.gz"), path("promoter_hic.${cellType}.*.rep${rep}.h5.gz") into ch_hic_features_COscore
+    tuple val(cellType), val(rep), path("enhancer_hic.${cellType}.*.rep${rep}.h5"), path("promoter_hic.${cellType}.*.rep${rep}.h5") into ch_hic_features_COscore
 
     script:  
     """
     python -c "import preptools as pt; \
     import pandas as pd; \
     import numpy as np; \
-    import os; \
     num='$hic_aug'.split('.')[-2]; \
     pt.SelectElements_in_TrainingData('$hic_aug', 
         np.load('$promoter_COscore',allow_pickle=True)['expr'],
@@ -497,9 +492,7 @@ process COMBINE_PCHIC_CO_SCORE {
     num='$hic_aug'.split('.')[-2]; \
     A = np.load(f'promoter_hic.${cellType}.{num}.rep${rep}.npz', allow_pickle=True)['expr']
     with h5py.File(f'promoter_hic.${cellType}.{num}.rep${rep}.h5', 'w') as h5f:
-        h5f.create_dataset('data', data=A)
-    os.system(f'gzip enhancer_hic.${cellType}.{num}.rep${rep}.h5')
-    os.system(f'gzip promoter_hic.${cellType}.{num}.rep${rep}.h5')"
+        h5f.create_dataset('data', data=A)"
     """ 
 }
 
@@ -516,11 +509,10 @@ process COMBINE_PCHIC_CO_SCORE_ENH {
 
 
     output:
-    tuple val(cellType), val(rep), path("enhancer_hic.${cellType}.rep${rep}.h5.gz") into ch_hic_features_COscore__1
+    tuple val(cellType), val(rep), path("enhancer_hic.${cellType}.rep${rep}.h5") into ch_hic_features_COscore__1
 
     script:  
     """
-    gzip -d $enhancer_rep_dat
     python -c "import numpy as np; 
     import h5py
     from natsort import natsorted
@@ -535,8 +527,6 @@ process COMBINE_PCHIC_CO_SCORE_ENH {
         row += s[0]
     list(map(lambda f:f.close(), h5f_list))
     h5f.close()"
-    gzip enhancer_hic.${cellType}.*.rep${rep}.h5
-    gzip enhancer_hic.${cellType}.rep${rep}.h5
     """ 
 }
 
@@ -549,11 +539,10 @@ process COMBINE_PCHIC_CO_SCORE_PR {
 
 
     output:
-    tuple val(cellType), val(rep), path("promoter_hic.${cellType}.rep${rep}.h5.gz") into ch_hic_features_COscore__2
+    tuple val(cellType), val(rep), path("promoter_hic.${cellType}.rep${rep}.h5") into ch_hic_features_COscore__2
 
     script:  
     """
-    gzip -d $promoter_rep_dat
     python -c "import numpy as np; 
     import h5py
     from natsort import natsorted
@@ -568,8 +557,6 @@ process COMBINE_PCHIC_CO_SCORE_PR {
         row += s[0]
     list(map(lambda f:f.close(), h5f_list))
     h5f.close()"
-    gzip promoter_hic.${cellType}.*.rep${rep}.h5
-    gzip promoter_hic.${cellType}.rep${rep}.h5
     """ 
 }
 
@@ -610,7 +597,6 @@ process COMBINE_CO_SCORE_REPS_ENH {
     for i in range(len(dnase_cell)):
         dnase_cell[i].close()
     "
-    gzip enhancer_hic_COscore.${cellType}.h5
     """ 
 }
 
@@ -645,7 +631,6 @@ process COMBINE_CO_SCORE_REPS_PR {
     for i in range(len(dnase_cell)):
         dnase_cell[i].close()
     "
-    gzip promoter_hic_COscore.${cellType}.h5
     """ 
 }
  
@@ -668,7 +653,7 @@ process COMBINE_PCHIC_DNA_SEQ {
     tuple val(cellType), path(hic_aug), path(enhancer_DNAseq), path(promoter_DNAseq), path(enhancer_bed), path(enhancer_bg), path(promoter_bed), path(promoter_bg)  from ch_hic_DNA_seq
 
     output:
-    tuple val(cellType), path("enhancer_hic.${cellType}.*.DNA_seq.h5.gz"), path("promoter_hic.${cellType}.*.DNA_seq.h5.gz") into ch_hic_DNA_seq_features_out
+    tuple val(cellType), path("enhancer_hic.${cellType}.*.DNA_seq.h5"), path("promoter_hic.${cellType}.*.DNA_seq.h5") into ch_hic_DNA_seq_features_out
 
     script:  
     """
@@ -676,7 +661,6 @@ process COMBINE_PCHIC_DNA_SEQ {
     import numpy as np
     import pandas as pd
     import h5py
-    import os
     reshapeDNA = lambda x:x.reshape(-1,x.shape[-1]//4,4)
     num = '$hic_aug'.split('.')[-2]
     pt.SelectElements_in_TrainingData('$hic_aug', \
@@ -695,10 +679,6 @@ process COMBINE_PCHIC_DNA_SEQ {
     A = np.load(f'promoter_hic.${cellType}.{num}.DNA_seq.npz', allow_pickle=True)['sequence']
     with h5py.File(f'promoter_hic.${cellType}.{num}.DNA_seq.h5', 'w') as h5f:
         h5f.create_dataset('data', data=A)
-    os.system(f'rm enhancer_hic.${cellType}.{num}.DNA_seq.npz')
-    os.system(f'rm promoter_hic.${cellType}.{num}.DNA_seq.npz')
-    os.system(f'gzip enhancer_hic.${cellType}.{num}.DNA_seq.h5')
-    os.system(f'gzip promoter_hic.${cellType}.{num}.DNA_seq.h5')
     "
     """ 
 }
@@ -716,11 +696,10 @@ process COMBINE_PCHIC_OUT_ENHANCER {
     tuple val(cellType), path(enhancer_rep_dat), path(promoter_rep_dat) from ch_hic_enhDNA_seq_features_out_1
 
     output:
-    tuple val(cellType), path("enhancer_hic.${cellType}.DNA_seq.h5.gz") into ch_hic_enhDNA_seq_features_out_1_
+    tuple val(cellType), path("enhancer_hic.${cellType}.DNA_seq.h5") into ch_hic_enhDNA_seq_features_out_1_
 
     script:
     """
-    gzip -d $enhancer_rep_dat
     python -c "import numpy as np; 
     import h5py
     from natsort import natsorted
@@ -736,8 +715,6 @@ process COMBINE_PCHIC_OUT_ENHANCER {
         row += s[0]
     list(map(lambda f:f.close(), h5f_list))
     h5f.close()"
-    gzip enhancer_hic.${cellType}.*.DNA_seq.h5
-    gzip enhancer_hic.${cellType}.DNA_seq.h5
     """
 }
 
@@ -750,11 +727,10 @@ process COMBINE_PCHIC_OUT_PROMOTER {
     tuple val(cellType), path(enhancer_rep_dat), path(promoter_rep_dat) from ch_hic_prDNA_seq_features_out_1
 
     output:
-    tuple val(cellType), path("promoter_hic.${cellType}.DNA_seq.h5.gz") into ch_hic_prDNA_seq_features_out_1_
+    tuple val(cellType), path("promoter_hic.${cellType}.DNA_seq.h5") into ch_hic_prDNA_seq_features_out_1_
 
     script:
     """
-    gzip -d $promoter_rep_dat
     python -c "import numpy as np; 
     import h5py
     from natsort import natsorted
@@ -770,8 +746,6 @@ process COMBINE_PCHIC_OUT_PROMOTER {
         row += s[0]
     list(map(lambda f:f.close(), h5f_list))
     h5f.close()"
-    gzip promoter_hic.${cellType}.*.DNA_seq.h5
-    gzip promoter_hic.${cellType}.DNA_seq.h5
     """
 }
 
@@ -787,7 +761,7 @@ process SAVE_ENH_DNA_SEQ {
     tuple val(cellType), path(enhancer_hic_DNAseq) from ch_hic_enhDNA_seq_features_out_1_
 
     output:
-    tuple val(cellType), path("enhancer_hic.${cellType}.DNA_seq.final.h5.gz") into ch_hic_features_enhDnaSeq
+    tuple val(cellType), path("enhancer_hic.${cellType}.DNA_seq.final.h5") into ch_hic_features_enhDnaSeq
 
     script:  
     """
@@ -802,9 +776,8 @@ process SAVE_ENH_DNA_SEQ {
             h5f.create_dataset('data',(s[0],shape1[1],shape1[3],shape1[2]), dtype=enhHicDnaseq_h5['data'].dtype)
             load_rows = 10000
             for i in range(math.ceil(s[0]/load_rows)):
-                h5f['data'][load_rows*i:load_rows*(i+1),:,:,:] = np.array(enhHicDnaseq_h5['data'][load_rows*i:load_rows*(i+1),:]).reshape(shape1).transpose(0, 1, 3, 2)                
+                h5f['data'][load_rows*i:load_rows*(i+1),:,:,:] = np.array(enhHicDnaseq_h5['data'][load_rows*i:load_rows*(i+1),:]).reshape(shape1).transpose(0, 1, 3, 2)
     "
-    gzip enhancer_hic.${cellType}.DNA_seq.final.h5
     """
 }
 
@@ -816,7 +789,7 @@ process SAVE_PR_DNA_SEQ {
     tuple val(cellType), path(promoter_hic_DNAseq) from ch_hic_prDNA_seq_features_out_1_
 
     output:
-    tuple val(cellType), path("promoter_hic.${cellType}.DNA_seq.final.h5.gz") into ch_hic_features_prDnaSeq
+    tuple val(cellType), path("promoter_hic.${cellType}.DNA_seq.final.h5") into ch_hic_features_prDnaSeq
 
     script:  
     """
@@ -833,7 +806,6 @@ process SAVE_PR_DNA_SEQ {
             for i in range(math.ceil(s[0]/load_rows)):
                 h5f['data'][load_rows*i:load_rows*(i+1),:,:,:] = np.array(prHicDnaseq_h5['data'][load_rows*i:load_rows*(i+1),:]).reshape(shape2).transpose(0, 1, 3, 2)
     "
-    gzip promoter_hic.${cellType}.DNA_seq.final.h5
     """
 }
 
@@ -845,7 +817,7 @@ process SAVE_ENH_CO_SCORE {
     tuple val(cellType), path(enhancer_hic_COscore), path(promoter_hic_COscore) from ch_hic_COscore_features_out_1
 
     output:
-    tuple val(cellType), path("enhancer_hic.${cellType}.CO_score.final.h5.gz") into ch_hic_features_enhCoScore
+    tuple val(cellType), path("enhancer_hic.${cellType}.CO_score.final.h5") into ch_hic_features_enhCoScore
 
     script:  
     """
@@ -860,7 +832,6 @@ process SAVE_ENH_CO_SCORE {
         with h5py.File(f'enhancer_hic.${cellType}.CO_score.final.h5', 'w') as h5f:
             h5f.create_dataset('data', data=Tregion1_expr)
     "
-    gzip enhancer_hic.${cellType}.CO_score.final.h5
     """
 }
 
@@ -872,7 +843,7 @@ process SAVE_PR_CO_SCORE {
     tuple val(cellType), path(enhancer_hic_COscore), path(promoter_hic_COscore) from ch_hic_COscore_features_out_2
 
     output:
-    tuple val(cellType), path("promoter_hic.${cellType}.CO_score.final.h5.gz") into ch_hic_features_prCoScore
+    tuple val(cellType), path("promoter_hic.${cellType}.CO_score.final.h5") into ch_hic_features_prCoScore
 
     script:  
     """
@@ -887,7 +858,6 @@ process SAVE_PR_CO_SCORE {
         with h5py.File(f'promoter_hic.${cellType}.CO_score.final.h5', 'w') as h5f:
             h5f.create_dataset('data', data=Tregion2_expr)
     "
-    gzip promoter_hic.${cellType}.CO_score.final.h5
     """
 }
 
@@ -910,11 +880,10 @@ process SEPARATE_DATA {
     tuple val(cellType), path(enhancer_hic_CO), path(promoter_hic_CO), path(enhancer_hic_DNAseq), path(promoter_hic_DNAseq), path(hic_aug) from ch_hic_features_out
 
     output:
-    tuple val(cellType), path("input_feature_part_*.h5.gz") into ch_hic_features_split_out mode flatten
+    tuple val(cellType), path("input_feature_part_*.h5") into ch_hic_features_split_out mode flatten
 
     script:  
     """
-    gzip -d $enhancer_hic_CO $promoter_hic_CO $enhancer_hic_DNAseq $promoter_hic_DNAseq
     python -c "import pandas as pd
     import h5py
     import math
@@ -954,7 +923,6 @@ process SEPARATE_DATA {
     h5f_prDNAseq.close()
     h5f_enhDNase.close()
     h5f_prDNase.close()"
-    gzip input_feature_part_*.h5
     """ 
 }
 
@@ -975,7 +943,6 @@ process CONVERT_TAR_XZ {
 
     script:  
     """
-    gzip -d input_feature_part
     python -c "import os
     import multiprocessing
     import h5py
