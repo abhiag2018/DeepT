@@ -10,4 +10,9 @@ conda activate cube
 NXF_OPTS='-Xms16g -Xmx64g'
 
 resumeDir=$1
-nextflow -C pchic-prep/nextflow.config run pchic-prep/main.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -with-timeline -resume $resumeDir 
+nextflow -C pchic-prep/nextflow.config \
+	-C pr-enh-prep/nextflow.config \
+	-C genome-seq-prep/nextflow.config \
+	run pchic-prep/main.nf -profile slurm \
+	--dev \
+	-w "/fastscratch/agarwa/nf-tmp/work" -with-timeline -resume $resumeDir 

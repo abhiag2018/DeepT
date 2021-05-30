@@ -1,5 +1,5 @@
 nextflow.preview.dsl=2
-include { PREPROCESS_PROMOTER; PREPROCESS_ENHANCER } from './modules/pr-enh-prep'
+include { PREPROCESS_PROMOTER; PREPROCESS_ENHANCER } from "${params.baseDir}/code/NN-feature-prep/modules/pr-enh-prep"
 
 ch_promoter_bed = Channel.fromPath( params.promoter_bedfile )
 ch_enhancer_bed = Channel.fromPath( params.enhancer_bedfile )

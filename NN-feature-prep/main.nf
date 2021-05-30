@@ -155,12 +155,13 @@ ch_enhancer_bed_prep2
 // DNase/ATAC preprocessing step 3.1
 // generate chromatin openness core profile (COscore) for promoter
 process CHROM_OPENN_SCORE_PROFILE_PROMOTER {
-    publishDir "${params.outdir}/promoters", mode: params.publish_dir_mode
+    storeDir "${params.store_dir}"
+
     input:
     tuple val(cell), val(rep), path(npzlist), path(promoter), path(promoter_bg) from ch_bam_readcounts_promoter
 
     output:
-    tuple val(cell), val(rep), path("promoter_COscore.${cell}.rep${rep}.npz") into ch_promoter_COscore
+    tuple val(cell), val(rep), path("promoter_COscore.${cell}.rep${rep}.npz.gz") into ch_promoter_COscore
 
     script:  
     // npzlist_ = npzlist.toList()
@@ -172,18 +173,20 @@ process CHROM_OPENN_SCORE_PROFILE_PROMOTER {
         $params.promoter_headers, \
         $params.bgWindow, \
         'promoter_COscore.${cell}.rep${rep}')"
+    gzip promoter_COscore.${cell}.rep${rep}.npz
     """
 }
 
 // DNase/ATAC preprocessing step 3.2
 // generate chromatin openness core profile (COscore) for enhancer
 process CHROM_OPENN_SCORE_PROFILE_ENHANCER {
-    publishDir "${params.outdir}/enhancers", mode: params.publish_dir_mode
+    storeDir "${params.store_dir}"
+
     input:
     tuple val(cell), val(rep), path(npzlist), path(enhancer), path(enhancer_bg) from ch_bam_readcounts_enhancer
 
     output:
-    tuple val(cell), val(rep), path("enhancer_COscore.${cell}.rep${rep}.npz") into ch_enhancer_COscore
+    tuple val(cell), val(rep), path("enhancer_COscore.${cell}.rep${rep}.npz.gz") into ch_enhancer_COscore
 
     script:  
     """
@@ -194,6 +197,7 @@ process CHROM_OPENN_SCORE_PROFILE_ENHANCER {
         $params.enhancer_headers, \
         $params.bgWindow, \
         'enhancer_COscore.${cell}.rep${rep}')"
+    enhancer_COscore.${cell}.rep${rep}.npz
     """
 }
 
