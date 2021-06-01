@@ -29,6 +29,8 @@ Input Files for DeepTACT Ground Truth data :
 
 # Preprocessing Steps
 
+Note : Modules storeDir directive storess the channel 
+
 1. Preprocess regulatory element lists :
 	* PREPROCESS_PROMOTER
 	* PREPROCESS_ENHANCER
@@ -49,8 +51,8 @@ Input Files for DeepTACT Ground Truth data :
 	4. combine promoters which correspond to the same gene i.e. in the promoter list there are a lot of promoters that are essentially the same; combine them: COMBINE_PROMOTERS
 	5. generate interactions for negative training data: GEN_NEG_LABEL
 	6. augment training data by a factor of *params.hic_augment_factor* and output training .csv file: GEN_AUGMENTED_LABEL 
-5. split hic augmented file into **params.hic_split_combine** parts: SPLIT_HIC_AUG
 6. Combine steps 1,2,3, and 4 ie. generate features for reg elemetns from step 5:
+	0. split hic augmented file into **params.hic_split_combine** parts: SPLIT_HIC_AUG
 	1. combine CO score profile data :
 		1. COMBINE_PCHIC_CO_SCORE
 		2. COMBINE_PCHIC_CO_SCORE_ENH, COMBINE_PCHIC_CO_SCORE_PR

@@ -4,7 +4,7 @@ include { prep_co_score_enh; prep_co_score_pr } from "${params.baseDir}/code/NN-
 include { prep_pchic } from "${params.baseDir}/code/NN-feature-prep/modules/pchic-prep"
 include { prep_gen_seq } from "${params.baseDir}/code/NN-feature-prep/modules/genome-seq-prep"
 
-// Combining Data : step 0
+// Combining Data : step 6.0
 process SPLIT_HIC_AUG{
     input:
     tuple val(cellType), path(hic_aug)
@@ -25,7 +25,7 @@ process SPLIT_HIC_AUG{
 }
 
 
-// Combining Data : step 1.1
+// Combining Data : step 6.1.1
 // combine PCHi-C interactions to get CO score for each element in the list
 process COMBINE_PCHIC_CO_SCORE {
     label 'bigmem'
@@ -72,7 +72,7 @@ process COMBINE_PCHIC_CO_SCORE {
     """ 
 }
 
-// Combining Data : step 1.2a
+// Combining Data : step 6.1.2a
 // combine PCHi-C interactions to get CO score for each element in the list
 process COMBINE_PCHIC_CO_SCORE_ENH {
     label 'bigmem'
@@ -105,7 +105,7 @@ process COMBINE_PCHIC_CO_SCORE_ENH {
     """ 
 }
 
-// Combining Data : step 1.2b
+// Combining Data : step 6.1.2b
 // combine PCHi-C interactions to get CO score for each element in the list
 process COMBINE_PCHIC_CO_SCORE_PR {
     label 'bigmem'
@@ -139,7 +139,7 @@ process COMBINE_PCHIC_CO_SCORE_PR {
 }
 
 
-// Combining Data : step 1.3
+// Combining Data : step 6.1.3
 // combine PCHi-C interactions to get CO score for each element in the list
 process COMBINE_CO_SCORE_REPS_ENH {
     label 'bigmem'
@@ -174,7 +174,7 @@ process COMBINE_CO_SCORE_REPS_ENH {
     """ 
 }
 
-// Combining Data : step 1.3
+// Combining Data : step 6.1.3
 // combine PCHi-C interactions to get CO score for each element in the list
 process COMBINE_CO_SCORE_REPS_PR {
     label 'bigmem'
@@ -209,7 +209,7 @@ process COMBINE_CO_SCORE_REPS_PR {
     """ 
 }
  
-// Combining Data : step 2.1
+// Combining Data : step 6.2.1
 // combine PCHi-C interactions to get DNA sequence for each element in the list
 process COMBINE_PCHIC_DNA_SEQ {
     label 'bigCpuMem'
@@ -256,7 +256,7 @@ process COMBINE_PCHIC_DNA_SEQ {
     """ 
 }
 
-// Combining Data : step 2.2a
+// Combining Data : step 6.2.2a
 process COMBINE_PCHIC_OUT_ENHANCER {
     label 'bigmem'
     publishDir "${params.outdir}/pchic", mode: params.publish_dir_mode
@@ -290,7 +290,7 @@ process COMBINE_PCHIC_OUT_ENHANCER {
     """
 }
 
-// Combining Data : step 2.2b
+// Combining Data : step 6.2.2b
 process COMBINE_PCHIC_OUT_PROMOTER {
     label 'bigmem'
     publishDir "${params.outdir}/pchic", mode: params.publish_dir_mode
@@ -350,7 +350,7 @@ process SAVE_ENH_DNA_SEQ {
     """
 }
 
-// Combining Data : step 3.1b
+// Combining Data : step 6.3.1b
 process SAVE_PR_DNA_SEQ {
     label 'bigmem'
 
@@ -379,7 +379,7 @@ process SAVE_PR_DNA_SEQ {
     """
 }
 
-// Combining Data : step 3.1c
+// Combining Data : step 6.3.1c
 process SAVE_ENH_CO_SCORE {
     label 'bigmem'
 
@@ -406,7 +406,7 @@ process SAVE_ENH_CO_SCORE {
     """
 }
 
-// Combining Data : step 3.1d
+// Combining Data : step 6.3.1d
 process SAVE_PR_CO_SCORE {
     label 'bigmem'
 
@@ -433,7 +433,7 @@ process SAVE_PR_CO_SCORE {
     """
 }
 
-// Combining Data : step 3.2
+// Combining Data : step 6.3.2
 // separate the data in ch_hic_DNA_seq_features_out_, ch_hic_COscore_features_out into data points
 process SEPARATE_DATA {
     label 'bigmem'
@@ -493,7 +493,7 @@ process SEPARATE_DATA {
 // ch_hic_features_split_out_ = ch_hic_features_split_out.take( params.dev ? params.dev_lim_tar : -1 )
 
 
-// Combining Data : step 3.2
+// Combining Data : step 6.3.2
 // separate the data in ch_hic_DNA_seq_features_out_, ch_hic_COscore_features_out into data points
 process CONVERT_TAR_XZ {
     label 'bigCpuMem'
@@ -527,7 +527,7 @@ process CONVERT_TAR_XZ {
 }
 
 
-// Combining Data : step 3.4
+// Combining Data : step 6.3.4
 // separate the data in ch_hic_DNA_seq_features_out_, ch_hic_COscore_features_out into data points
 process COMBINE_DATA_TAR {
     label 'bigmem'
@@ -549,6 +549,7 @@ process COMBINE_DATA_TAR {
 }
 
 
+//
 workflow combine_data{
     ch_enhancer_bed_prep = enhancer_bed()
     ch_promoter_bed_prep = promoter_bed()
