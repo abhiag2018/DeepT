@@ -1,5 +1,5 @@
 nextflow.preview.dsl=2
-include { prep_gen_seq } from "${params.baseDir}/code/NN-feature-prep/modules/genome-seq-prep"
+include { prep_gen_seq } from "${params.codeDir}/NN-feature-prep/modules/genome-seq-prep"
 
 ch_cellTypes = Channel.fromList(params.cellTypes)
 ch_hic_input = Channel.fromPath( params.dev ? params.hic_dev : params.hic_input)
@@ -34,8 +34,7 @@ process SPLIT_HIC {
 // match the elements in the tsv file to elements in the regulatory elements lists
 process MATCH_HIC_TO_REG_ELEMENTS {
     input:
-    tuple path(enhancer_npz), path(promoter_npz)
-    tuple path(hic_input), val(cellType)
+    tuple path(enhancer_npz), path(promoter_npz), path(hic_input), val(cellType)
 
     output:
     tuple val(cellType), path('*.pkl')
@@ -78,8 +77,7 @@ process COMBINE_MATCHED_HIC {
 // combine transcript IDs under the same gene
 process COMBINE_PROMOTERS {
     input:
-    tuple val(cellType), path(hic_matched)
-    path(gtf_input)
+    tuple val(cellType), path(hic_matched), path(gtf_input)
 
     output:
     tuple val(cellType), path("hic.unique.${cellType}.csv")
@@ -105,13 +103,13 @@ process COMBINE_PROMOTERS {
     """ 
 }
 
+pos_neg_interac_ratio = params.dev ? 2 : params.pos_neg_interac_ratio
+
 // PCHi-C processing : step 5
 // generate negative labels
 process GEN_NEG_LABEL {
     input:
-    path(hic_input)
-    tuple path(enhancer_dnaseq), path(promoter_dnaseq)
-    tuple val(cellType), path(hic_gtfed)
+    tuple path(hic_input), path(enhancer_dnaseq), path(promoter_dnaseq), val(cellType), path(hic_gtfed)
 
 
     output:
@@ -130,12 +128,14 @@ process GEN_NEG_LABEL {
         $params.promoter_window, \
         $params.enhancer_window, \
         hic_out = 'hic.pos.neg.${cellType}.csv', \
-        numSamples=$params.pos_neg_interac_ratio )
+        numSamples=$pos_neg_interac_ratio )
     os.system('rm $enhancer_dnaseq'[:-3])
     os.system('rm $promoter_dnaseq'[:-3])"
     """ 
 }
 
+
+hic_augment_factor = params.dev ? 2 : params.hic_augment_factor 
 
 // PCHi-C processing : step 6
 // augment data
@@ -161,23 +161,23 @@ process GEN_AUGMENTED_LABEL {
         $params.augment_step, \
         $params.enhancer_window, \
         $params.promoter_window, \
-        mult_fac = $params.hic_augment_factor )"
+        mult_fac = $hic_augment_factor )"
     """ 
 }
 
-workflow {
+workflow prep_pchic{
     ch_gen_seq = prep_gen_seq()
     ch_hic_cell_regElements = SPLIT_HIC(ch_hic_input).flatten().combine(ch_cellTypes)
 
-    ch_hic_match = MATCH_HIC_TO_REG_ELEMENTS(ch_gen_seq,ch_hic_cell_regElements)
-    ch_hic_matched = COMBINE_MATCHED_HIC(ch_hic_match.groupTuple(by: 0))
-    ch_hic_gtfed = COMBINE_PROMOTERS(ch_hic_matched, ch_gtf_input)
-    ch_hic_augment = GEN_NEG_LABEL(ch_hic_input, ch_gen_seq, ch_hic_gtfed) | GEN_AUGMENTED_LABEL
+    ch_hic_match = MATCH_HIC_TO_REG_ELEMENTS(ch_gen_seq.combine(ch_hic_cell_regElements))
+    ch_hic_matched = COMBINE_MATCHED_HIC(ch_hic_match.groupTuple(by: 0)).transpose()
+    ch_hic_gtfed = COMBINE_PROMOTERS(ch_hic_matched.combine(ch_gtf_input))
+    ch_hic_augment = GEN_NEG_LABEL(ch_hic_input.combine(ch_gen_seq).combine(ch_hic_gtfed)) | GEN_AUGMENTED_LABEL
     emit:
     ch_hic_augment
 }
 
-// workflow{
-//     pchic().view()
-// }
+workflow{
+    prep_pchic().view()
+}
 

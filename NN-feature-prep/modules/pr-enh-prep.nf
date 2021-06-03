@@ -60,7 +60,16 @@ process PREPROCESS_ENHANCER {
     """
 }
 
+workflow promoter_bed{
+    ch_out = PREPROCESS_PROMOTER( ch_promoter_bed )
+    emit: ch_out
+}
+workflow enhancer_bed{
+    ch_out = PREPROCESS_ENHANCER( ch_enhancer_bed )
+    emit: ch_out 
+}
+
 workflow {
-    ch_promoter_bed_prep = PREPROCESS_PROMOTER( ch_promoter_bed )
-    ch_enhancer_bed_prep = PREPROCESS_ENHANCER( ch_enhancer_bed )
+    promoter_bed().view()
+    enhancer_bed().view()
 }

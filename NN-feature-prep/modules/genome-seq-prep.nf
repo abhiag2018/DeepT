@@ -1,8 +1,5 @@
 nextflow.preview.dsl=2
-include { PREPROCESS_PROMOTER; PREPROCESS_ENHANCER } from "${params.baseDir}/code/NN-feature-prep/modules/pr-enh-prep"
-
-ch_promoter_bed = Channel.fromPath( params.promoter_bedfile )
-ch_enhancer_bed = Channel.fromPath( params.enhancer_bedfile )
+include { promoter_bed; enhancer_bed } from "${params.codeDir}/NN-feature-prep/modules/pr-enh-prep"
 
 ch_input_fasta = Channel.fromPath(params.species_genome_fasta)
 
@@ -15,7 +12,7 @@ process GENOMIC_SEQUENCE_PROMOTER {
     path(fasta)
 
     output:
-    file("promoter_DNAseq.npz.gz")
+    file("promoter_DNAseq.hg19.npz.gz")
 
     script:  
     """
@@ -26,8 +23,8 @@ process GENOMIC_SEQUENCE_PROMOTER {
 
     python -c "import preptools as pt; \
     pt.fasta_to_onehot('promoter.fa', \
-        outp='promoter_DNAseq.npz')"
-    gzip promoter_DNAseq.npz
+        outp='promoter_DNAseq.hg19.npz')"
+    gzip promoter_DNAseq.hg19.npz
     """
 }
 
@@ -42,7 +39,7 @@ process GENOMIC_SEQUENCE_ENHANCER {
     path(fasta)
 
     output:
-    file("enhancer_DNAseq.npz.gz")
+    file("enhancer_DNAseq.hg19.npz.gz")
 
     script:  
     """
@@ -53,16 +50,17 @@ process GENOMIC_SEQUENCE_ENHANCER {
 
     python -c "import preptools as pt; \
     pt.fasta_to_onehot('enhancer.fa', \
-        outp='enhancer_DNAseq.npz')"
-    gzip enhancer_DNAseq.npz
+        outp='enhancer_DNAseq.hg19.npz')"
+    gzip enhancer_DNAseq.hg19.npz
     """
 }
 
 
 
 workflow prep_gen_seq{
-    ch_promoter_bed_prep = PREPROCESS_PROMOTER( ch_promoter_bed )
-    ch_enhancer_bed_prep = PREPROCESS_ENHANCER( ch_enhancer_bed )
+
+    ch_promoter_bed_prep = promoter_bed()
+    ch_enhancer_bed_prep = enhancer_bed()
 
     ch_pr_genseq = GENOMIC_SEQUENCE_PROMOTER(ch_promoter_bed_prep, ch_input_fasta)
     ch_enh_genseq = GENOMIC_SEQUENCE_ENHANCER(ch_enhancer_bed_prep, ch_input_fasta)
