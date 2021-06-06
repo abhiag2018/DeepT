@@ -1,0 +1,5 @@
+celltype,repetition,npz
+
+tB,1,promoter_COscore.tB.rep1.npz
+tB,2,promoter_COscore.tB.rep2.npz
+tB,3,promoter_COscore.tB.rep3.npz
