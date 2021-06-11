@@ -12,7 +12,7 @@ include {SPLIT_HIC_AUG; COMBINE_PCHIC_CO_SCORE; COMBINE_PCHIC_CO_SCORE_ENH; COMB
 ch_enhancer_bed_prep = Channel.fromPath("$params.store_dir/enhancer.bed").combine(Channel.fromPath("$params.store_dir/enhancer_bg.bed"))
 ch_promoter_bed_prep = Channel.fromPath("$params.store_dir/promoter.bed").combine(Channel.fromPath("$params.store_dir/promoter_bg.bed"))
 
-ch_dnaseq = Channel.fromPath("$params.store_dir/enhancer_DNAseq.npz").combine(Channel.fromPath("$params.store_dir/promoter_DNAseq.npz"))
+ch_dnaseq = Channel.fromPath("$params.store_dir/enhancer_DNAseq.hg19.npz").combine(Channel.fromPath("$params.store_dir/promoter_DNAseq.hg19.npz"))
 
 Channel.fromPath("$projectDir/co_score_pr.csv")
   .splitCsv(header:true, sep:',')
@@ -38,7 +38,6 @@ workflow combine_data{
     ch_hic_aug_split = SPLIT_HIC_AUG(ch_hic_aug).transpose().take( params.dev ? 2 : -1)
 
     ch_combined = ch_enh.join(ch_pr, by:[0,1]).combine(ch_hic_aug_split, by:0)
-    ch_combined.take(2).view()
     ch_combined_ = COMBINE_PCHIC_CO_SCORE(ch_combined).groupTuple(by:[0,1])
 
     // ch_hic_aug_split_.take(1).view()
@@ -55,11 +54,11 @@ workflow combine_data{
     ch__ = ch_hic_aug_split.combine(ch_dnaseq).combine(ch_enhancer_bed_prep).combine(ch_promoter_bed_prep)
     ch_hic_dnaseq = COMBINE_PCHIC_DNA_SEQ(ch__).groupTuple(by:0)
 
-    ch_enh_coscore = COMBINE_PCHIC_OUT_ENHANCER(ch_hic_dnaseq) | SAVE_ENH_DNA_SEQ
-    ch_pr_coscore = COMBINE_PCHIC_OUT_PROMOTER(ch_hic_dnaseq) | SAVE_PR_DNA_SEQ
+    ch_enh_dnaseq = COMBINE_PCHIC_OUT_ENHANCER(ch_hic_dnaseq) | SAVE_ENH_DNA_SEQ //| UNZIP1
+    ch_pr_dnaseq = COMBINE_PCHIC_OUT_PROMOTER(ch_hic_dnaseq) | SAVE_PR_DNA_SEQ //| UNZIP2
 
-    ch_enh_dnaseq = SAVE_ENH_CO_SCORE(ch_hic_coscore_reps)
-    ch_pr_dnaseq = SAVE_PR_CO_SCORE(ch_hic_coscore_reps)
+    ch_enh_coscore = SAVE_ENH_CO_SCORE(ch_hic_coscore_reps) //| UNZIP3
+    ch_pr_coscore = SAVE_PR_CO_SCORE(ch_hic_coscore_reps) //| UNZIP4
 
     ch_data = ch_enh_coscore
         .join(ch_pr_coscore, by:0)
@@ -67,8 +66,10 @@ workflow combine_data{
         .join(ch_pr_dnaseq, by:0)
         .join(ch_hic_aug_split, by:0)
 
+    // ch_data_gz.view()
+    // ch_data = UNZIP(ch_data_gz)
+    ch_data.view()
     ch_data_tar = SEPARATE_DATA(ch_data).transpose() | CONVERT_TAR_XZ
-    
     ch_deept_features = COMBINE_DATA_TAR(ch_data_tar.groupTuple(by:0))
 
     emit: ch_deept_features
