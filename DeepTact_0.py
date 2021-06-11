@@ -320,11 +320,11 @@ def evaluate(eval_cell, bootstrap_time, limit_data=None, append_str=""):
 
 ############################ MAIN ###############################
 BATCH_SIZE=32
-# time_append = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+'-'+''.join(random.choices(string.ascii_uppercase + string.digits,k=10))
-# os.makedirs(CELL+'/'+TYPE+'/models_'+time_append, exist_ok=True)
-# LOG_DIR = CELL+'/'+TYPE+"/logs_" + time_append
-# os.makedirs(LOG_DIR, exist_ok=True)
-# train(lim_data=1000)
+time_append = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+'-'+''.join(random.choices(string.ascii_uppercase + string.digits,k=10))
+os.makedirs(CELL+'/'+TYPE+'/models_'+time_append, exist_ok=True)
+LOG_DIR = CELL+'/'+TYPE+"/logs_" + time_append
+os.makedirs(LOG_DIR, exist_ok=True)
+train(lim_data=1000)
 
 # split_train_val_bootstrap()
 
@@ -334,10 +334,11 @@ BATCH_SIZE=32
 #     '20201028-021157', '20201028-001550', '20201027-194725', '20201027-143432', '20201026-133133', '20201026-132933', 
 #     '20201026-133436', '20201026-131102', '20201026-131111', '20201023-150244', '20201023-150253', '20201023-143322', 
 #     '20201023-142612', '20201023-142204', '20201023-142053']
+# bootstrap_time = ['20201030-102007', '20201030-062033', '20201030-052652', '20201029-140022', '20201029-100734']
 
 # bootstrap_time = ['20201106-092932', '20201106-092935', '20201110-160151', '20201110-162720', '20201110-173652', 
 #     '20201110-181813', '20201116-153110-8TI7NZ4YV9', '20201116-153942-RHKA9FXYQP', '20201116-153945-9P5RYRN8W8', 
 #     '20201116-154055-34L9UK53CH', '20201116-154118-0B3OLVXQLS', '20201116-154139-798CFGWRVA', '20201120-135722-1CKL4WP6RD']
-bootstrap_time = ['20201116-154055-34L9UK53CH', '20201116-154118-0B3OLVXQLS', '20201116-154139-798CFGWRVA', '20201120-135722-1CKL4WP6RD']
-EVAL_CELL = sys.argv[4]
-evaluate(EVAL_CELL, bootstrap_time, limit_data=None, append_str="bs4_limdata_None")
+# bootstrap_time = ['20201116-154055-34L9UK53CH', '20201116-154118-0B3OLVXQLS', '20201116-154139-798CFGWRVA', '20201120-135722-1CKL4WP6RD']
+# EVAL_CELL = sys.argv[4]
+# evaluate(EVAL_CELL, bootstrap_time, limit_data=None, append_str="bs4_limdata_None")

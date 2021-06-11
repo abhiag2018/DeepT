@@ -502,7 +502,7 @@ process CONVERT_TAR_XZ {
 // Combining Data : step 5.3.4
 // separate the data in ch_hic_DNA_seq_features_out_, ch_hic_COscore_features_out into data points
 process COMBINE_DATA_TAR {
-    label 'bigmem'
+    // label 'bigmem'
     stageInMode 'copy'
     storeDir "${params.store_dir}"
 

@@ -1,1 +1,0 @@
-genome-seq-prep/run_genome_seq.sh

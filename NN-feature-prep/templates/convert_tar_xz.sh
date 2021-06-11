@@ -6,8 +6,8 @@ i=`python ${projectDir}/templates/convert_tar_xz.py $cellType $input_feature_par
 
 tar cJvfh features.${cellType}.\${i}.tar.xz data_\${i}
 
-echo $i
-# rm $input_feature_part
+echo \$i
+rm $input_feature_part
 
 
 

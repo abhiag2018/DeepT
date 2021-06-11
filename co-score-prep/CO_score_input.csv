@@ -1,5 +1,1 @@
-celltype,repetition,bam
-
-tB,1,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/GM12878_GRCh38/ENCSR637XSC/May5-download/ENCFF981FXV_hg19.sorted.bam
-tB,2,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/GM12878_GRCh38/ENCSR637XSC/May5-download/ENCFF962FMH_hg19.sorted.bam
-tB,3,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/GM12878_GRCh38/ENCSR637XSC/May5-download/ENCFF440GRZ_hg19.sorted.bam
+CO_score_input.nCD4.csv

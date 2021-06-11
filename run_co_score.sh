@@ -1,1 +1,0 @@
-co-score-prep/run_co_score.sh
