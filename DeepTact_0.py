@@ -197,9 +197,10 @@ def data_gen(path,index_file,lim_data=None, check_num_rep = True):
         yield input_dict, label
 
 
-def split_train_val_bootstrap(test=0.2):
-    labels = np.load(f"{CELL}/{TYPE}/{filename1}_Seq.npz")['label']
-    NUM = labels.shape[0]
+def split_train_val_bootstrap(test=0.2,NUM=None):
+    if not NUM:
+        labels = np.load(f"{CELL}/{TYPE}/{filename1}_Seq.npz")['label']
+        NUM = labels.shape[0]
     testsize = int(NUM*test)
     trainsize = NUM - testsize
     random_perm = np.random.permutation(range(NUM))
@@ -324,7 +325,7 @@ time_append = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+'-'+''.join(rand
 os.makedirs(CELL+'/'+TYPE+'/models_'+time_append, exist_ok=True)
 LOG_DIR = CELL+'/'+TYPE+"/logs_" + time_append
 os.makedirs(LOG_DIR, exist_ok=True)
-train(lim_data=1000)
+train(lim_data=None)
 
 # split_train_val_bootstrap()
 
