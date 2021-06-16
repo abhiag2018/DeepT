@@ -64,7 +64,7 @@ workflow combine_data{
         .join(ch_pr_coscore, by:0)
         .join(ch_enh_dnaseq, by:0)
         .join(ch_pr_dnaseq, by:0)
-        .join(ch_hic_aug_split, by:0)
+        .combine(ch_hic_aug_split, by:0)
 
     // ch_data_gz.view()
     // ch_data = UNZIP(ch_data_gz)
@@ -75,12 +75,8 @@ workflow combine_data{
     emit: ch_deept_features
 }
 
-
-
-
-
 workflow{
-    combine_data().view()
+    combine_data()
 } 
 
 

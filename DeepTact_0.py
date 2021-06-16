@@ -41,39 +41,6 @@ Training DeepTACT for P-P/P-E interactions
 @author: abhiag
 """
 
-######################## GPU Settings #########################
-# gpu_use = str(0)#raw_input('Use gpu: ')
-# gpu_cnmem = str(0.9)#raw_input('CNMeM: ')
-# os.environ['THEANO_FLAGS'] = "warn.round=False,device=cuda"+gpu_use+",lib.cnmem="+gpu_cnmem
-# os.environ['THEANO_FLAGS'] = "warn.round=False,device=gpu"+gpu_use+",lib.cnmem="+gpu_cnmem
-
-
-########################### Input #############################
-if len(sys.argv)<3:
-    print('[USAGE] python DeepTACT.py cell interaction_type num_DNase_experiments')
-    print('For example, python DeepTACT.py demo P-E 3')
-    sys.exit()
-CELL = sys.argv[1]
-TYPE = sys.argv[2]
-NUM_REP = int(sys.argv[3])
-if TYPE == 'P-P':
-    filename1 = 'promoter1'
-    filename2 = 'promoter2'
-    RESIZED_LEN = 1000 #promoter
-elif TYPE == 'P-E':
-    filename1 = 'enhancer'
-    filename2 = 'promoter'
-    RESIZED_LEN = 2000 #enhancer
-else:
-    print('[USAGE] python DeepTACT.py cell interaction_type num_DNase_experiments')
-    print('For example, python DeepTACT.py demo P-E 3')
-    sys.exit()
-
-
-######################## Initialization #######################
-NUM_SEQ = 4
-# NUM_ENSEMBL = int(sys.argv[4])
-
 ########################### Training ##########################
 # Attention GRU network
 class AttLayer(Layer):
@@ -319,27 +286,44 @@ def evaluate(eval_cell, bootstrap_time, limit_data=None, append_str=""):
 #     return f1, auprc
 
 
-############################ MAIN ###############################
-BATCH_SIZE=32
-time_append = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+'-'+''.join(random.choices(string.ascii_uppercase + string.digits,k=10))
-os.makedirs(CELL+'/'+TYPE+'/models_'+time_append, exist_ok=True)
-LOG_DIR = CELL+'/'+TYPE+"/logs_" + time_append
-os.makedirs(LOG_DIR, exist_ok=True)
-train(lim_data=None)
+########################### Input #############################
+if __name__=="__main__":
+    job = sys.argv[1]
+    if len(sys.argv)<3:
+        print('[USAGE] python DeepTACT.py cell interaction_type num_DNase_experiments')
+        print('For example, python DeepTACT.py demo P-E 3')
+        sys.exit()
+    CELL = sys.argv[2]
+    TYPE = sys.argv[3]
+    NUM_REP = int(sys.argv[4])
+    if TYPE == 'P-P':
+        filename1 = 'promoter1'
+        filename2 = 'promoter2'
+        RESIZED_LEN = 1000 #promoter
+    elif TYPE == 'P-E':
+        filename1 = 'enhancer'
+        filename2 = 'promoter'
+        RESIZED_LEN = 2000 #enhancer
+    else:
+        print('[USAGE] python DeepTACT.py cell interaction_type num_DNase_experiments')
+        print('For example, python DeepTACT.py demo P-E 3')
+        sys.exit()
 
-# split_train_val_bootstrap()
+    NUM_SEQ = 4
+    # NUM_ENSEMBL = int(sys.argv[5])
 
+    BATCH_SIZE=32
 
-# bootstrap_time = ['20201030-102007', '20201030-062033', '20201030-052652', '20201029-140022', '20201029-100734', 
-#     '20201029-080806', '20201029-052739', '20201029-045235', '20201029-003927', '20201028-050134', '20201028-025051', 
-#     '20201028-021157', '20201028-001550', '20201027-194725', '20201027-143432', '20201026-133133', '20201026-132933', 
-#     '20201026-133436', '20201026-131102', '20201026-131111', '20201023-150244', '20201023-150253', '20201023-143322', 
-#     '20201023-142612', '20201023-142204', '20201023-142053']
-# bootstrap_time = ['20201030-102007', '20201030-062033', '20201030-052652', '20201029-140022', '20201029-100734']
-
-# bootstrap_time = ['20201106-092932', '20201106-092935', '20201110-160151', '20201110-162720', '20201110-173652', 
-#     '20201110-181813', '20201116-153110-8TI7NZ4YV9', '20201116-153942-RHKA9FXYQP', '20201116-153945-9P5RYRN8W8', 
-#     '20201116-154055-34L9UK53CH', '20201116-154118-0B3OLVXQLS', '20201116-154139-798CFGWRVA', '20201120-135722-1CKL4WP6RD']
-# bootstrap_time = ['20201116-154055-34L9UK53CH', '20201116-154118-0B3OLVXQLS', '20201116-154139-798CFGWRVA', '20201120-135722-1CKL4WP6RD']
-# EVAL_CELL = sys.argv[4]
-# evaluate(EVAL_CELL, bootstrap_time, limit_data=None, append_str="bs4_limdata_None")
+    ############################ MAIN ###############################
+    if job == "train":
+        time_append = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+'-'+''.join(random.choices(string.ascii_uppercase + string.digits,k=10))
+        os.makedirs(CELL+'/'+TYPE+'/models_'+time_append, exist_ok=True)
+        LOG_DIR = CELL+'/'+TYPE+"/logs_" + time_append
+        os.makedirs(LOG_DIR, exist_ok=True)
+        train(lim_data=None)
+    elif job == "split":
+        split_train_val_bootstrap()
+    elif job == "test":
+        bootstrap_time = ['20210612-154645-OBV3MX966I']
+        EVAL_CELL = sys.argv[5]
+        evaluate(EVAL_CELL, bootstrap_time, limit_data=None, append_str="")
