@@ -325,6 +325,7 @@ def train_augment(cell_traindata, cell_train_aug, aug_len_enh, aug_len_pr, aug_s
     train_data = pd.read_csv(cell_traindata)
 
     train_augDF = pd.concat(map(lambda x:genDF(*x), train_data.iterrows()), ignore_index=True)
+    train_augDF['index']=train_augDF.index
     train_augDF.to_csv(cell_train_aug, index=False)
     return 0
 

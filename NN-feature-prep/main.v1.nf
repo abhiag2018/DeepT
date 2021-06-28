@@ -7,8 +7,8 @@ nextflow.preview.dsl=2
 include {SPLIT_HIC_AUG; COMBINE_PCHIC_CO_SCORE; COMBINE_PCHIC_CO_SCORE_ENH; COMBINE_PCHIC_CO_SCORE_PR; \
     COMBINE_CO_SCORE_REPS_ENH; COMBINE_CO_SCORE_REPS_PR; \
     COMBINE_PCHIC_DNA_SEQ; COMBINE_PCHIC_OUT_ENHANCER; COMBINE_PCHIC_OUT_PROMOTER; \
-    SAVE_ENH_DNA_SEQ; SAVE_PR_DNA_SEQ; SAVE_ENH_CO_SCORE; SAVE_PR_CO_SCORE; SEPARATE_DATA; CONVERT_TAR_XZ; COMBINE_DATA_TAR} from "$projectDir/modules/combine.v1" 
-
+    SEPARATE_DATA} from "$projectDir/modules/combine.v1" 
+include {splitByChromosomeBed; splitByChromosomeHiC; splitByChromosomeHiCcross; splitByChromosomeCOscore; splitByChromosomeDNAseq} from "$projectDir/modules/splitByChrom"
 
 ch_enhancer_bed_prep = Channel.fromPath("$params.store_dir/enhancer.bed").combine(Channel.fromPath("$params.store_dir/enhancer_bg.bed"))
 ch_promoter_bed_prep = Channel.fromPath("$params.store_dir/promoter.bed").combine(Channel.fromPath("$params.store_dir/promoter_bg.bed"))
@@ -33,161 +33,6 @@ Channel.fromPath("$projectDir/pchic_data.csv")
     .set { ch_hic_aug }
 
 
-// process to filter bed file by chromosome 
-// outputs the filtered file and the index file for the filtered rows
-process splitByChromosomeBed {
-    memory '5 GB'
-
-    input:
-    tuple val(chr), val(enh_pr), path(bed_file)
-
-    output:
-    tuple val(chr), val(enh_pr), path("${bed_file}.$chr"), path("${bed_file}.index"), val(bed_file.baseName)
-
-
-    script:
-    """
-    num=`wc -l $bed_file | awk '{print \$1}'`
-    seq 0 \$((\$num-1)) > tmp
-    paste $bed_file tmp > ${bed_file}.tmp
-    awk '{ if(\$1 == "$chr") { print } }' ${bed_file}.tmp > ${bed_file}.tmp.chr
-    awk 'NF-=1' OFS='\t' ${bed_file}.tmp.chr > ${bed_file}.$chr
-    awk '{ print \$NF }' ${bed_file}.tmp.chr > ${bed_file}.index
-    """
-}
-
-// process to filter bed file by chromosome 
-process splitByChromosomeHiC {
-    memory '5 GB'
-
-    input:
-    tuple val(chr), val(cellType), path(hic_aug) 
-
-    output:
-    tuple val(chr), val(cellType), path("${hic_aug}.$chr")
-
-
-    script:
-    """
-    head -n 1 $hic_aug > ${hic_aug}.$chr
-    tail -n +2 $hic_aug | awk -F',' '{ if(\$1 == "$chr" && \$5 == "$chr") { print }}' >> ${hic_aug}.$chr
-    """
-}
-
-// process to filter interactions with diff chromosome on diff anchors
-process splitByChromosomeHiCcross {
-    memory '5 GB'
-
-    input:
-    tuple val(cellType), path(hic_aug) 
-
-    output:
-    tuple val(cellType), path("${hic_aug}.X")
-
-
-    script:
-    """
-    head -n 1 $hic_aug > ${hic_aug}.X
-    tail -n +2 $hic_aug | awk -F',' '{ if(\$1 != \$5) { print }}' >> ${hic_aug}.X
-    """
-}
-
-
-process splitByChromosomeCOscore {
-    memory '5 GB'
-
-    input:
-    tuple val(chr), val(enh_pr), path(index_file), val(cellType), val(rep), path(numpy_coscore)
-
-    output:
-    tuple val(chr), val(enh_pr), val(cellType), val(rep), path("${numpy_coscore.baseName}.${chr}.npz")
-
-
-    script:
-    """
-    #!/usr/bin/env python
-    import numpy as np
-    import pandas as pd
-    index=list(pd.read_csv("$index_file",header=None)[0])
-    coscore_data=np.load("$numpy_coscore")
-    np.savez("${numpy_coscore.baseName}.${chr}.npz",expr=coscore_data['expr'][index,:])
-    """
-}
-
-process  splitByChromosomeDNAseq{
-    memory '5 GB'
-
-    input:
-    tuple val(chr), val(enh_pr), path(index_file), path(numpy_dna)
-
-    output:
-    tuple val(chr), val(enh_pr), path("${numpy_dna.baseName}.${chr}.npz")
-
-
-    script:
-    """
-    #!/usr/bin/env python
-    import numpy as np
-    import pandas as pd
-    index=list(pd.read_csv("$index_file",header=None)[0])
-    dna_data=np.load("$numpy_dna")
-    np.savez("${numpy_dna.baseName}.${chr}.npz",sequence=dna_data['sequence'][index,:],name=dna_data['name'][index],loc=dna_data['loc'][index])
-    """
-}
-
-// Combining Data : step 5.3.2
-// separate the data into NPZ files.. into $sepdata_split chunks for easy processing in next step
-// output : input_feature_part_{0-511}.h5.gz
-// time: 1h40m
-process SEPARATE_DATA_NPZ {
-    clusterOptions = '--qos batch --cpus-per-task 8'
-    errorStrategy 'finish'
-
-    input:
-    tuple val(cellType), path(enhancer_hic_CO_gz), path(promoter_hic_CO_gz), path(enhancer_hic_DNAseq_gz), path(promoter_hic_DNAseq_gz), path(hic_aug) 
-
-    output:
-    tuple val(cellType), path("data_chr.${cellType}.tar.gz")
-
-    script:  
-    enhancer_hic_CO = enhancer_hic_CO_gz.baseName
-    promoter_hic_CO = promoter_hic_CO_gz.baseName
-    enhancer_hic_DNAseq = enhancer_hic_DNAseq_gz.baseName
-    promoter_hic_DNAseq = promoter_hic_DNAseq_gz.baseName
-    """
-    gzip -df $enhancer_hic_CO_gz
-    gzip -df $promoter_hic_CO_gz
-    gzip -df $enhancer_hic_DNAseq_gz
-    gzip -df $promoter_hic_DNAseq_gz
-    python -c "import h5py
-    import os
-    import pandas as pd
-    from multiprocessing import Pool
-    import numpy as np
-
-    Tlabel = pd.read_csv('$hic_aug')['label']
-    Tenh_coscore = h5py.File('$enhancer_hic_CO_gz.baseName','r')['data']
-    Tenh_dnaseq = h5py.File('$enhancer_hic_DNAseq_gz.baseName','r')['data']
-    Tpr_coscore = h5py.File('$promoter_hic_CO_gz.baseName','r')['data']
-    Tpr_dnaseq = h5py.File('$promoter_hic_DNAseq_gz.baseName','r')['data']
-
-    def npz_save(out, enh_coscore_, enh_dnaseq_, pr_coscore_, pr_dnaseq_, label_): 
-        np.savez(out, enh_seq = enh_dnaseq_ , 
-            pr_seq = pr_dnaseq_ , 
-            enh_dnase = enh_coscore_[np.newaxis,:,:] , 
-            pr_dnase = pr_coscore_[np.newaxis,:,:] , 
-            label = label_)
-
-    os.makedirs('data')
-    with Pool() as pool:
-        pool.starmap(npz_save, zip([f'data/{i}.npz' for i in range(len(Tlabel))], Tenh_coscore, Tenh_dnaseq, Tpr_coscore, Tpr_dnaseq, Tlabel ))
-    "
-    # rm $enhancer_hic_CO_gz.baseName $promoter_hic_CO_gz.baseName $enhancer_hic_DNAseq_gz.baseName $promoter_hic_DNAseq_gz.baseName
-    tar -czvf data_chr.${cellType}.tar.gz data
-    rm -rf data
-    """
-}
-
 process RENAME_OUT {
     storeDir "${params.store_dir}"
     errorStrategy 'finish'
@@ -204,11 +49,6 @@ process RENAME_OUT {
     """
 
 }
-
-ch_nCD4 = Channel.value('nCD4')
-    .combine(Channel.fromPath( '/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/nCD4.hic.*/input_feature_part_*.h5.gz' ))
-ch_tB = Channel.value('tB')
-    .combine(Channel.fromPath( '/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/tB.hic.*/input_feature_part_*.h5.gz' ))
 
 workflow combine_data{
     take:
@@ -231,16 +71,14 @@ workflow combine_data{
     ch_hic_coscore = COMBINE_PCHIC_CO_SCORE_ENH(ch_combined_)
         .join(COMBINE_PCHIC_CO_SCORE_PR(ch_combined_), by:[0,1])
         .groupTuple(by: 0)
-    ch_hic_coscore_reps = COMBINE_CO_SCORE_REPS_ENH(ch_hic_coscore).join(COMBINE_CO_SCORE_REPS_PR(ch_hic_coscore), by:0)
+    ch_enh_coscore = COMBINE_CO_SCORE_REPS_ENH(ch_hic_coscore)
+    ch_pr_coscore = COMBINE_CO_SCORE_REPS_PR(ch_hic_coscore)
 
     ch__ = ch_hic_aug_split.combine(ch_dnaseq).combine(ch_enhancer_bed_prep).combine(ch_promoter_bed_prep)
     ch_hic_dnaseq = COMBINE_PCHIC_DNA_SEQ(ch__).groupTuple(by:0)
 
-    ch_enh_dnaseq = COMBINE_PCHIC_OUT_ENHANCER(ch_hic_dnaseq) | SAVE_ENH_DNA_SEQ //| UNZIP1
-    ch_pr_dnaseq = COMBINE_PCHIC_OUT_PROMOTER(ch_hic_dnaseq) | SAVE_PR_DNA_SEQ //| UNZIP2
-
-    ch_enh_coscore = SAVE_ENH_CO_SCORE(ch_hic_coscore_reps) //| UNZIP3
-    ch_pr_coscore = SAVE_PR_CO_SCORE(ch_hic_coscore_reps) //| UNZIP4
+    ch_enh_dnaseq = COMBINE_PCHIC_OUT_ENHANCER(ch_hic_dnaseq) 
+    ch_pr_dnaseq = COMBINE_PCHIC_OUT_PROMOTER(ch_hic_dnaseq) 
 
     ch_data = ch_enh_coscore
         .join(ch_pr_coscore, by:0)
@@ -248,16 +86,10 @@ workflow combine_data{
         .join(ch_pr_dnaseq, by:0)
         .combine(ch_hic_aug, by:0)
 
-    ch_deept_features = SEPARATE_DATA_NPZ(ch_data)
-
-    // // ch_data = UNZIP(ch_data_gz)
-    // ch_data_tar = SEPARATE_DATA(ch_data).transpose() | CONVERT_TAR_XZ
-    // // ch_data_tar.take(3).view()
-    // ch_deept_features = COMBINE_DATA_TAR(ch_data_tar.groupTuple(by:0))
+    ch_deept_features = SEPARATE_DATA(ch_data)
 
     emit: ch_deept_features
 }
-
 
 workflow splitByChrom{
     take:

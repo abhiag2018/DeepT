@@ -103,7 +103,7 @@ process COMBINE_PROMOTERS {
     """ 
 }
 
-pos_neg_interac_ratio = params.dev ? 2 : params.pos_neg_interac_ratio
+pos_neg_interac_ratio = params.dev ? 1 : params.pos_neg_interac_ratio
 
 // PCHi-C processing : step 5
 // generate negative labels

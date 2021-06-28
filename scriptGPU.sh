@@ -11,7 +11,7 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate /projects/li-lab/agarwa/conda_envs/cube
 
 PYTHONPATH=NN-feature-prep/bin:$PYTHONPATH
-base_dir="/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/features-tB"
+base_dir="/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir"
 
 job=$1
 cell=$2
