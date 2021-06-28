@@ -3,6 +3,7 @@
 
 import sys
 import os, re
+import glob
 import time
 import random
 import itertools
@@ -11,6 +12,7 @@ import string
 import numpy as np
 import hickle as hkl
 from sklearn import metrics
+import pandas as pd
 
 import tensorflow as tf
 from tensorflow import keras
@@ -136,16 +138,16 @@ def true_labels(path,index_file,lim_data=None):
     # path = f"{CELL}/{TYPE}/data"
     # index_file = f"{CELL}/{TYPE}/bagData/train_{t}.hkl"
     labels = []
-    for i in itertools.islice(hkl.load(index_file),lim_data):
-        fpath = f"{path}/{i}.npz"
+    for i in itertools.islice(pd.read_csv(index_file)['data'],lim_data):
+        fpath = f"{path}/{i}"
         labels.append(np.load(fpath)['label'])
     return np.array(labels)
 
 def data_gen(path,index_file,lim_data=None, check_num_rep = True):
     # path = f"{CELL}/{TYPE}/data"
     # index_file = f"{CELL}/{TYPE}/bagData/train_{t}.hkl"
-    for i in itertools.islice(hkl.load(index_file),lim_data):
-        fpath = f"{path}/{i}.npz"
+    for i in itertools.islice(pd.read_csv(index_file)['data'],lim_data):
+        fpath = f"{path}/{i}"
         obj = np.load(fpath)
         input_dict = {}
         input_dict['enh_seq'] = tf.convert_to_tensor(obj['enh_seq'])
@@ -164,6 +166,23 @@ def data_gen(path,index_file,lim_data=None, check_num_rep = True):
         yield input_dict, label
 
 
+def split_train_val_bootstrap_1(test=0.2):
+    dirpath=f"{CELL}/{TYPE}/data"
+    npz_files=glob.glob(f"{dirpath}/**/**/*.npz")
+    NUM=len(npz_files)
+
+    print(f"{NUM} datapoints found.")
+    testsize = int(NUM*test)
+    trainsize = NUM - testsize
+    random_perm = np.random.permutation(range(NUM))
+
+    test_index = list(npz_files[i][len(dirpath)+1:] for i in random_perm[0:testsize])
+    train_index = list(npz_files[i][len(dirpath)+1:] for i in random_perm[testsize:])
+
+    pd.DataFrame(train_index, columns=["data"]).to_csv(CELL+'/'+TYPE+'/train.csv', index=False)
+    pd.DataFrame(test_index, columns=["data"]).to_csv(CELL+'/'+TYPE+'/test.csv', index=False)
+    return 0
+
 def split_train_val_bootstrap(test=0.2,NUM=None):
     if not NUM:
         labels = np.load(f"{CELL}/{TYPE}/{filename1}_Seq.npz")['label']
@@ -180,8 +199,8 @@ def split_train_val_bootstrap(test=0.2,NUM=None):
     return 0
 
 def bagging(lim_data=None):
-    traingen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data", f"{LOG_DIR}/train.hkl",lim_data=lim_data, check_num_rep = False)
-    valgen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data", f"{LOG_DIR}/val.hkl",lim_data=lim_data, check_num_rep = False)
+    traingen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data", f"{LOG_DIR}/train.csv",lim_data=lim_data, check_num_rep = False)
+    valgen_callable = lambda:data_gen(f"{CELL}/{TYPE}/data", f"{LOG_DIR}/val.csv",lim_data=lim_data, check_num_rep = False)
     output_types = {'enh_seq':tf.float64, 'pr_seq':tf.float64, 'enh_dnase':tf.float64, 'pr_dnase':tf.float64}
     output_shapes = {'enh_seq':[1,NUM_SEQ,RESIZED_LEN], 'pr_seq':[1,NUM_SEQ,1000], 'enh_dnase':[1,NUM_REP,RESIZED_LEN], 'pr_dnase':[1,NUM_REP,1000]}
     train_set = tf.data.Dataset.from_generator(traingen_callable, output_types=(output_types, tf.int64), output_shapes = (output_shapes,[]))
@@ -210,15 +229,14 @@ def train(lim_data=None):
 
     VAL_FRAC = 0.2
     time.sleep(np.random.uniform(np.random.uniform(high=3.0))) #avoid file lock for .hkl files
-    train_index = hkl.load(CELL+'/'+TYPE+'/train.hkl')
-    # random_perm = np.array(range(len(train_index)))
-    random_perm = np.random.permutation(range(len(train_index)))
+    train_index = pd.read_csv(CELL+'/'+TYPE+'/train.csv')['data']
+    random_perm = np.random.permutation(train_index)
     valsize = int(len(train_index)*VAL_FRAC)
     val_index = random_perm[0:valsize]
     train_index = random_perm[valsize:]
 
-    hkl.dump(train_index, LOG_DIR+'/train.hkl')
-    hkl.dump(val_index, LOG_DIR+'/val.hkl')
+    pd.DataFrame(train_index, columns=["data"]).to_csv(LOG_DIR+'/train.csv', index=False)
+    pd.DataFrame(val_index, columns=["data"]).to_csv(LOG_DIR+'/val.csv', index=False)
 
     bagging(lim_data=lim_data)
 
@@ -248,14 +266,17 @@ def evaluate(eval_cell, bootstrap_time, limit_data=None, append_str=""):
                   optimizer = optimizers.Adam(lr = 0.00001),
                   metrics = ['acc', f1])
 
-    test_labels = true_labels(f"{eval_cell_path}/data", f"{eval_cell_path}/test.hkl",lim_data=limit_data)
+    test_labels = true_labels(f"{eval_cell_path}/data", f"{eval_cell_path}/test.csv",lim_data=limit_data)
 
     avg_score = np.zeros((test_labels.shape[0],1))
 
     for time_append in bootstrap_time[:NUM_ENSEMBL]:
+        print("starting evaluation of ",CELL+'/'+TYPE+f"/models_{time_append}/best_model.h5",flush=True)
+        print()
+        print()
         model.load_weights(CELL+'/'+TYPE+f"/models_{time_append}/best_model.h5")
 
-        testgen_callable = lambda:data_gen(f"{eval_cell_path}/data", f"{eval_cell_path}/test.hkl",lim_data=limit_data, check_num_rep = False)
+        testgen_callable = lambda:data_gen(f"{eval_cell_path}/data", f"{eval_cell_path}/test.csv",lim_data=limit_data, check_num_rep = False)
 
         test_set = tf.data.Dataset.from_generator(testgen_callable, output_types=(output_types, tf.int64), output_shapes = (output_shapes,[]))
         test_set = test_set.batch(BATCH_SIZE)
@@ -322,8 +343,9 @@ if __name__=="__main__":
         os.makedirs(LOG_DIR, exist_ok=True)
         train(lim_data=None)
     elif job == "split":
-        split_train_val_bootstrap()
+        split_train_val_bootstrap_1()
+        # split_train_val_bootstrap()
     elif job == "test":
-        bootstrap_time = ['20210612-154645-OBV3MX966I']
+        bootstrap_time = ['20210625-035437-SMSQ3NN9UN']
         EVAL_CELL = sys.argv[5]
         evaluate(EVAL_CELL, bootstrap_time, limit_data=None, append_str="")
