@@ -166,6 +166,35 @@ def data_gen(path,index_file,lim_data=None, check_num_rep = True):
         yield input_dict, label
 
 
+
+def split_train_val_bootstrap_2(test=0.2):
+    dirpath=f"{CELL}/{TYPE}/data"
+    import itertools
+    import numpy as np
+    chroms = np.random.permutation(glob.glob(f"{dirpath}/**"))
+
+    npzFiles = []
+    for chrom in itertools.islice(chroms,20):
+        tmp = glob.glob(f"{chrom}/data/*.npz")
+        print(len(tmp),chrom.split("/")[-1])
+        npzFiles = npzFiles + tmp
+    train_index = list(npzf[len(dirpath)+1:] for npzf in npzFiles)
+
+    npzFiles = []
+    for chrom in itertools.islice(chroms,20,25):
+        tmp = glob.glob(f"{chrom}/data/*.npz")
+        print(len(tmp),chrom.split("/")[-1])
+        npzFiles = npzFiles + tmp
+    test_index = list(npzf[len(dirpath)+1:] for npzf in npzFiles)
+
+    print("train : ",len(train_index))
+    print("test : ",len(test_index))
+    print("total : ", len(train_index)+len(test_index))
+    pd.DataFrame(train_index, columns=["data"]).to_csv(CELL+'/'+TYPE+'/train.csv', index=False)
+    pd.DataFrame(test_index, columns=["data"]).to_csv(CELL+'/'+TYPE+'/test.csv', index=False)
+    return 0
+
+
 def split_train_val_bootstrap_1(test=0.2):
     dirpath=f"{CELL}/{TYPE}/data"
     npz_files=glob.glob(f"{dirpath}/**/**/*.npz")
@@ -230,13 +259,23 @@ def train(lim_data=None):
     VAL_FRAC = 0.2
     time.sleep(np.random.uniform(np.random.uniform(high=3.0))) #avoid file lock for .hkl files
     train_index = pd.read_csv(CELL+'/'+TYPE+'/train.csv')['data']
-    random_perm = np.random.permutation(train_index)
-    valsize = int(len(train_index)*VAL_FRAC)
-    val_index = random_perm[0:valsize]
-    train_index = random_perm[valsize:]
+    chroms_npz=train_index.apply(lambda s:s.split('/')[0])
+    chroms = np.random.permutation(np.unique(train_index.apply(lambda s:s.split('/')[0])))
 
-    pd.DataFrame(train_index, columns=["data"]).to_csv(LOG_DIR+'/train.csv', index=False)
-    pd.DataFrame(val_index, columns=["data"]).to_csv(LOG_DIR+'/val.csv', index=False)
+    train_data = train_index[chroms_npz.apply(lambda x: x in chroms[:16])]
+    val_data = train_index[chroms_npz.apply(lambda x: x in chroms[16:])]
+    train_data.to_csv(LOG_DIR+'/train.csv', index=False)
+    val_data.to_csv(LOG_DIR+'/val.csv', index=False)
+
+    print("train data: ", train_data.shape[0])
+    print("validation data: ",  val_data.shape[0])
+    # random_perm = np.random.permutation(train_index)
+    # valsize = int(len(train_index)*VAL_FRAC)
+    # val_index = random_perm[0:valsize]
+    # train_index = random_perm[valsize:]
+
+    # pd.DataFrame(train_index, columns=["data"]).to_csv(LOG_DIR+'/train.csv', index=False)
+    # pd.DataFrame(val_index, columns=["data"]).to_csv(LOG_DIR+'/val.csv', index=False)
 
     bagging(lim_data=lim_data)
 
@@ -343,9 +382,11 @@ if __name__=="__main__":
         os.makedirs(LOG_DIR, exist_ok=True)
         train(lim_data=None)
     elif job == "split":
-        split_train_val_bootstrap_1()
+        split_train_val_bootstrap_2()
         # split_train_val_bootstrap()
     elif job == "test":
-        bootstrap_time = ['20210625-035437-SMSQ3NN9UN']
+        # bootstrap_time = ['20210625-035437-SMSQ3NN9UN']
         EVAL_CELL = sys.argv[5]
+        bootstrap_time = sys.argv[6:]
+        print(bootstrap_time)
         evaluate(EVAL_CELL, bootstrap_time, limit_data=None, append_str="")

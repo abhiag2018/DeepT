@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --mem=10G
+#SBATCH --mem=1G
 #SBATCH --qos batch 
 #SBATCH --time 3-00:00:00
 
@@ -9,7 +9,7 @@ conda activate cube
 ###
 NXF_OPTS='-Xms16g -Xmx64g'
 
-resumeDir=$1
+resumeDir=$1; shift
 # nextflow -C NN-feature-prep/nextflow.config run NN-feature-prep/main.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -with-timeline -resume $resumeDir
 # nextflow -C DeepTact-input-preprocessing/nextflow-test.config run preprocessing/main.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work"
 
@@ -21,6 +21,6 @@ nextflow -c nextflow.config \
 	-c  configs/pr-enh-prep.config \
 	run main.v1.nf -profile slurm \
 	-w "/fastscratch/agarwa/nf-tmp/work" -with-timeline \
-	-resume $resumeDir \
-	# --dev
+	-resume $resumeDir "$@" \
+	## --dev
 # gzip storeDir/*.npz 

@@ -199,8 +199,12 @@ process COMBINE_CO_SCORE_REPS_ENH {
         dnase_cell[i].close()
     "
     old_files="$enhancer_COscore_reps.baseName"
-    NM="\${old_files:1:\${#old_files}-2}"
-    rm `echo "\${NM//, / }"`
+    if [ "\${old_files:0:1}" == "[" ]; then
+        NM="\${old_files:1:\${#old_files}-2}"
+        rm `echo "\${NM//, / }"`
+    else
+        rm \$old_files
+    fi
     gzip enhancer_hic.combined.${cellType}.COscore.h5
     """ 
 }
@@ -242,8 +246,12 @@ process COMBINE_CO_SCORE_REPS_PR {
         dnase_cell[i].close()
     "
     old_files="$promoter_COscore_reps.baseName"
-    NM="\${old_files:1:\${#old_files}-2}"
-    rm `echo "\${NM//, / }"`
+    if [ "\${old_files:0:1}" == "[" ]; then
+        NM="\${old_files:1:\${#old_files}-2}"
+        rm `echo "\${NM//, / }"`
+    else
+        rm \$old_files
+    fi
     gzip promoter_hic.combined.${cellType}.COscore.h5
     """ 
 }
@@ -406,7 +414,7 @@ process UNZIP {
 // time: 1h40m
 process SEPARATE_DATA {
     tag "data_chr.${cellType}.tar.gz"
-    clusterOptions = '--qos batch --cpus-per-task 16'
+    clusterOptions = '--qos batch --cpus-per-task 8'
     errorStrategy 'finish'
 
     input:
@@ -425,10 +433,11 @@ process SEPARATE_DATA {
     gzip -df $promoter_hic_CO_gz
     gzip -df $enhancer_hic_DNAseq_gz
     gzip -df $promoter_hic_DNAseq_gz
+
     python -c "import h5py
     import os
     import pandas as pd
-    from multiprocessing import Pool
+    import multiprocessing as mp
     import numpy as np
 
     hicInteractions = pd.read_csv('$hic_aug')
@@ -439,21 +448,22 @@ process SEPARATE_DATA {
     Tpr_coscore = h5py.File('$promoter_hic_CO_gz.baseName','r')['data']
     Tpr_dnaseq = h5py.File('$promoter_hic_DNAseq_gz.baseName','r')['data']
 
-    def npz_save(out, enh_coscore_, enh_dnaseq_, pr_coscore_, pr_dnaseq_, label_, index_): 
-        np.savez(out, enh_seq = enh_dnaseq_.reshape((1,$params.enhancer_window,4)).transpose(0,2,1).shape , 
-            pr_seq = pr_dnaseq_.reshape((1,$params.promoter_window,4)).transpose(0,2,1).shape , 
+    def npz_save(enh_coscore_, enh_dnaseq_, pr_coscore_, pr_dnaseq_, label_, index_): 
+        print(f'data/{index_}.npz',flush=True)
+        np.savez(f'data/{index_}.npz', enh_seq = enh_dnaseq_.reshape((1,$params.enhancer_window,4)).transpose(0,2,1) , 
+            pr_seq = pr_dnaseq_.reshape((1,$params.promoter_window,4)).transpose(0,2,1) , 
             enh_dnase = enh_coscore_[np.newaxis,:,:] , 
             pr_dnase = pr_coscore_[np.newaxis,:,:] , 
             label = label_,
             index = index_)
 
     os.makedirs('data')
-    with Pool() as pool:
-        pool.starmap(npz_save, zip([f'data/{i}.npz' for i in range(len(Tlabel))], Tenh_coscore, Tenh_dnaseq, Tpr_coscore, Tpr_dnaseq, Tlabel, Tindex ))
+    print(f'{mp.cpu_count()} CPUs visible', flush=True)
+    with mp.Pool(processes=None) as pool:
+        pool.starmap(npz_save, zip(Tenh_coscore, Tenh_dnaseq, Tpr_coscore, Tpr_dnaseq, Tlabel, Tindex ))
     "
-    rm $enhancer_hic_CO_gz.baseName $promoter_hic_CO_gz.baseName $enhancer_hic_DNAseq_gz.baseName $promoter_hic_DNAseq_gz.baseName
-    tar -czvf data_chr.${cellType}.tar.gz data
-    rm -rf data
+    # rm $enhancer_hic_CO_gz.baseName $promoter_hic_CO_gz.baseName $enhancer_hic_DNAseq_gz.baseName $promoter_hic_DNAseq_gz.baseName
+    tar -czvf data_chr.${cellType}.tar.gz data --remove-files
     """
 }
 // ch_hic_features_split_out_ = ch_hic_features_split_out.take( params.dev ? params.dev_lim_tar : -1 )

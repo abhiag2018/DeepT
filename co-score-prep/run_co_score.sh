@@ -9,11 +9,18 @@ conda activate cube
 ###
 NXF_OPTS='-Xms16g -Xmx64g'
 
-resumeDir=$1
-nextflow  -c nextflow.config \
-	-c  params.config \
-	-c ../pr-enh-prep/params.config \
-	run main.nf \
-	-profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -with-timeline \
-	-resume $resumeDir 
 
+
+SCRIPT_DIR="/projects/li-lab/agarwa/CUBE/DeepTact/code/co-score-prep"
+
+# resumeDir=$1; shift
+# bamInput=$1; shift
+nextflow  -c $SCRIPT_DIR/nextflow.config \
+	-c  $SCRIPT_DIR/params.config \
+	-c $SCRIPT_DIR/../pr-enh-prep/params.config \
+	run $SCRIPT_DIR/main.nf \
+	-profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -with-timeline \
+	-resume "$@"
+	# --bamInput $bamInput
+
+sbatch co-score-prep --bamInput Mon.csv

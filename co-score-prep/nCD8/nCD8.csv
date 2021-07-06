@@ -1,0 +1,5 @@
+celltype,repetition,bam
+
+nCD8,1,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/nCD8/nCD8_R1.mLb.clN.sorted.bam
+nCD8,2,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/nCD8/nCD8_R2.mLb.clN.sorted.bam
+nCD8,3,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/nCD8/nCD8_R3.mLb.clN.sorted.bam

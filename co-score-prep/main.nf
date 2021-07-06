@@ -4,7 +4,9 @@ include { promoter_bed; enhancer_bed } from "${params.codeDir}/NN-feature-prep/m
 ch_chrom_val = Channel.fromList(params.chromList)
 ch_chrLen = Channel.value(params.chromLen_GRCh37v13)
 
-Channel.fromPath(params.coScore_data)
+if (params.bamInput)     { ch_input = Channel.fromPath(params.bamInput, checkIfExists: true) } else { exit 1, 'bam inputs file not specified! \nUse: --bamInput <file>' }
+
+ch_input
   .splitCsv(header:true, sep:',')
   .map { row -> [ row.celltype, row.repetition, file(row.bam, checkIfExists: true) ]  }
   .set {ch_input_bam}
