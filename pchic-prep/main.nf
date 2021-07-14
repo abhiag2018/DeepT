@@ -32,6 +32,7 @@ process SPLIT_HIC {
 
 // PCHi-C processing : step 2
 // match the elements in the tsv file to elements in the regulatory elements lists
+// 6 min
 process MATCH_HIC_TO_REG_ELEMENTS {
     input:
     tuple path(enhancer_npz), path(promoter_npz), path(hic_input), val(cellType)
@@ -134,34 +135,56 @@ process GEN_NEG_LABEL {
     """ 
 }
 
-
-hic_augment_factor = params.dev ? 2 : params.hic_augment_factor 
-
 // PCHi-C processing : step 6
+// split data into test, train and validation 
+process SPLIT_TEST {
+    input:
+    tuple val(cellType), path(hic_pos_neg)
+
+    output:
+    tuple val(cellType), path("hic.pos.neg.${cellType}.train.csv"), path("hic.pos.neg.${cellType}.test.csv"), path("hic.pos.neg.${cellType}.val.csv")
+
+    script:
+    """
+    python -c "import preptools as pt; \
+    pt.splitCSVparts('$hic_pos_neg', \
+        [], \
+        readArgs = {}, \
+        writeArgs = {'header':True,'index':False}, \
+        prefix='hic.pos.neg.${cellType}.', \
+        split_num=[$params.trainFrac, $params.valFrac, $params.testFrac], \
+        suffix='.csv')"
+        
+    mv hic.pos.neg.${cellType}.0.csv hic.pos.neg.${cellType}.train.csv 
+    mv hic.pos.neg.${cellType}.1.csv hic.pos.neg.${cellType}.val.csv 
+    mv hic.pos.neg.${cellType}.2.csv hic.pos.neg.${cellType}.test.csv 
+    """
+}
+
+// PCHi-C processing : step 7
 // augment data
 process GEN_AUGMENTED_LABEL {
     storeDir "${params.store_dir}"
 
     input:
-    tuple val(cellType), path(hic_pos_neg)
+    tuple val(cellType), path(hic_pos_neg), val(aug_len), val(hic_aug_factor)
 
     output:
-    tuple val(cellType), path("hic.aug.${cellType}.csv")
+    path("${hic_pos_neg.baseName}.aug.csv")
 
     script:  
     """
-    echo $cellType, $hic_pos_neg
-
-    python -c "import process_PCHiC as pchic; \
-    pchic.train_augment('$hic_pos_neg', \
-        'hic.aug.${cellType}.csv', \
-        $params.augment_length, \
-        $params.augment_length, \
+    #!/usr/bin/env python
+    import process_PCHiC as pchic
+    pchic.train_augment('$hic_pos_neg',
+        '${hic_pos_neg.baseName}.aug.csv', \
+        $aug_len, \
+        $aug_len, \
         $params.augment_step, \
         $params.augment_step, \
         $params.enhancer_window, \
         $params.promoter_window, \
-        mult_fac = $hic_augment_factor )"
+        mult_fac = $hic_aug_factor )
     """ 
 }
 
@@ -172,12 +195,41 @@ workflow prep_pchic{
     ch_hic_match = MATCH_HIC_TO_REG_ELEMENTS(ch_gen_seq.combine(ch_hic_cell_regElements))
     ch_hic_matched = COMBINE_MATCHED_HIC(ch_hic_match.groupTuple(by: 0)).transpose()
     ch_hic_gtfed = COMBINE_PROMOTERS(ch_hic_matched.combine(ch_gtf_input))
-    ch_hic_augment = GEN_NEG_LABEL(ch_hic_input.combine(ch_gen_seq).combine(ch_hic_gtfed)) | GEN_AUGMENTED_LABEL
+    ch_hic_split = GEN_NEG_LABEL(ch_hic_input.combine(ch_gen_seq).combine(ch_hic_gtfed)) | SPLIT_TEST
+    ch_hic_split_filt = ch_hic_split
+        .map{it -> [it[0],[it[1],it[2],it[3]]]}
+        .transpose()
+
+    // ch_hic_split_valtest = ch_hic_split_filt.filter{ it[1].getBaseName() =~ /^((?!train$).)*$/ }  // all splits that are not train
+    ch_hic_split_test = ch_hic_split_filt.filter{ it[1].getBaseName() =~ /test$/ }
+    ch_hic_split_val = ch_hic_split_filt.filter{ it[1].getBaseName() =~ /val$/ }
+    ch_hic_split_train = ch_hic_split_filt.filter{ it[1].getBaseName() =~ /train$/ }
+
+    ch_hic_split_test = ch_hic_split_test.combine(Channel.value([1,1]))
+    ch_hic_split_val = ch_hic_split_val.combine(Channel.value([1,1]))
+    ch_hic_split_train = ch_hic_split_train.combine(Channel.value([params.augment_length,params.hic_augment_factor]))
+    // ch_hic_split_valtest_ = ch_hic_split_valtest.map(it -> it[1]).collectFile(storeDir:"${params.store_dir}")
+
+    ch_hic_augment = GEN_AUGMENTED_LABEL(ch_hic_split_test.mix(ch_hic_split_val).mix(ch_hic_split_train))
+
     emit:
     ch_hic_augment
 }
 
 workflow{
     prep_pchic().view()
+
+    // ch_hic_input = Channel.value("test").merge(Channel.fromPath("test1.csv"))
+
+    // ch_hic_split = SPLIT_TEST(ch_hic_input)
+    //     .map{it -> [it[0],[it[1],it[2],it[3]]]}.transpose()
+
+    // ch_hic_split_valtest = ch_hic_split.filter{ it[1].getBaseName() =~ /^((?!train$).)*$/ } // all splits that are not train
+    // ch_hic_split_train = ch_hic_split.filter{ it[1].getBaseName() =~ /train$/ }
+
+    // ch_hic_split_valtest_ = ch_hic_split_valtest.map(it -> it[1]).collectFile(storeDir:"${params.store_dir}")
+
+    // ch_hic_split_valtest_.mix(ch_hic_split_train).view()
+
 }
 

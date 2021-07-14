@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import colored_traceback.always
 import traceback
 import re, os, sys, shutil, argparse
@@ -57,6 +58,42 @@ def concat_files(file_list,output_path):
         return 1
     return 0
 
+def splitCSVparts(input_path, out_paths, readArgs = {}, writeArgs = {}, prefix=None, split_num = [0.6,0.2,0.2], suffix=None):
+    """
+    split an input csv file into N(=len(out_paths)) parts
+    out_paths = [f"output_path_{i}.csv" for i in range(N)] #output path name function
+    """
+    N = len(out_paths)
+
+    out_paths = []
+    if N==0:
+        for i in range(len(split_num)):
+            out_paths.append(prefix+str(i)+suffix)
+        N = len(out_paths)
+
+    df = pd.read_csv(input_path,**readArgs) # reading file
+    df_pos = df[df.label==1]
+    df_neg = df[df.label==0]
+
+    def gen_indices(split_num, max_lines):
+        usedIndex=-1
+        low=[]
+        high=[]
+        for f in split_num[:-1]:
+            low=low+[usedIndex+1]
+            high=high+[usedIndex+round(max_lines*f)+1]
+            usedIndex+=round(max_lines*f)
+        low=low+[usedIndex+1]
+        high=high+[max_lines]
+        return low, high
+
+    low_pos, high_pos = gen_indices(split_num, len(df_pos))
+    low_neg, high_neg = gen_indices(split_num, len(df_neg))
+    for i in range(N):
+        df_new = pd.concat((df_pos[low_pos[i]:high_pos[i]], df_neg[low_neg[i]:high_neg[i]]))  # subsetting DataFrame based on index
+        df_new.to_csv(out_paths[i],**writeArgs) # output file 
+    return 0
+
 def splitCSV(input_path, out_paths, readArgs = {}, writeArgs = {}, prefix=None, split_num = None, suffix=None):
     """
     split an input csv file into N(=len(out_paths)) parts
@@ -72,8 +109,8 @@ def splitCSV(input_path, out_paths, readArgs = {}, writeArgs = {}, prefix=None, 
 
     df = pd.read_csv(input_path,**readArgs) # reading file
     max_lines = len(df)
-    numlines = int(np.ceil(max_lines/N))
-    low = np.arange(0,max_lines,numlines)
+    numlines = int(np.floor(max_lines/N))
+    low = np.arange(0,max_lines,numlines)[:N]
     high = np.concatenate((low[1:],[max_lines]))
 
     for i in range(N):

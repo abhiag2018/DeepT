@@ -15,12 +15,14 @@ process SPLIT_HIC_AUG{
 
     script:
     """
+    num=`wc -l $hic_aug | awk '{print \$1}'`
+    num_part=\$((num/7000))
     python -c "import preptools as pt; \
     pt.splitCSV('$hic_aug', \
         [], \
         readArgs = {}, \
         writeArgs = {'header':True}, prefix='hic.aug.${cellType}.', \
-        split_num=$params.hic_split_combine, \
+        split_num= max(min(\$num_part, $params.hic_split_combine),1), \
         suffix='.csv')"
     """
 }
@@ -114,8 +116,12 @@ process COMBINE_PCHIC_CO_SCORE_ENH {
     list(map(lambda f:f.close(), h5f_list))
     h5f.close()"
     old_files="$enhancer_rep_dat.baseName"
-    NM="\${old_files:1:\${#old_files}-2}"
-    rm `echo "\${NM//, / }"`
+    if [ "\${old_files:0:1}" == "[" ]; then
+        NM="\${old_files:1:\${#old_files}-2}"
+        rm `echo "\${NM//, / }"`
+    else
+        rm \$old_files
+    fi
     gzip enhancer_hic.combined.${cellType}.rep${rep}.h5
     """ 
 }
@@ -156,8 +162,12 @@ process COMBINE_PCHIC_CO_SCORE_PR {
     list(map(lambda f:f.close(), h5f_list))
     h5f.close()"
     old_files="$promoter_rep_dat.baseName"
-    NM="\${old_files:1:\${#old_files}-2}"
-    rm `echo "\${NM//, / }"`
+    if [ "\${old_files:0:1}" == "[" ]; then
+        NM="\${old_files:1:\${#old_files}-2}"
+        rm `echo "\${NM//, / }"`
+    else
+        rm \$old_files
+    fi
     gzip promoter_hic.combined.${cellType}.rep${rep}.h5
     """ 
 }
@@ -342,8 +352,12 @@ process COMBINE_PCHIC_OUT_ENHANCER {
     list(map(lambda f:f.close(), h5f_list))
     h5f.close()"
     old_files="$enhancer_rep_dat.baseName"
-    NM="\${old_files:1:\${#old_files}-2}"
-    rm `echo "\${NM//, / }"`
+    if [ "\${old_files:0:1}" == "[" ]; then
+        NM="\${old_files:1:\${#old_files}-2}"
+        rm `echo "\${NM//, / }"`
+    else
+        rm \$old_files
+    fi
     gzip enhancer_hic.combined.${cellType}.DNA_seq.h5
     """
 }
@@ -385,8 +399,12 @@ process COMBINE_PCHIC_OUT_PROMOTER {
     list(map(lambda f:f.close(), h5f_list))
     h5f.close()"
     old_files="$promoter_rep_dat.baseName"
-    NM="\${old_files:1:\${#old_files}-2}"
-    rm `echo "\${NM//, / }"`
+    if [ "\${old_files:0:1}" == "[" ]; then
+        NM="\${old_files:1:\${#old_files}-2}"
+        rm `echo "\${NM//, / }"`
+    else
+        rm \$old_files
+    fi
     gzip promoter_hic.combined.${cellType}.DNA_seq.h5
     """
 }
