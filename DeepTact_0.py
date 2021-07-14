@@ -288,11 +288,13 @@ def train(lim_data=None):
 
     # train_data = train_index[chroms_npz.apply(lambda x: x in chroms[:16])]
     # val_data = train_index[chroms_npz.apply(lambda x: x in chroms[16:])]
-    train_index.to_csv(LOG_DIR+'/train.csv', index=False)
-    val_index.to_csv(LOG_DIR+'/val.csv', index=False)
+    train_data = train_index[np.random.permutation(range(len(train_index)))]
+    val_data = val_index[np.random.permutation(range(len(val_index)))]
+    train_data.to_csv(LOG_DIR+'/train.csv', index=False)
+    val_data.to_csv(LOG_DIR+'/val.csv', index=False)
 
-    print("train data: ", train_index.shape[0])
-    print("validation data: ",  val_index.shape[0])
+    print("train data: ", train_data.shape[0])
+    print("validation data: ",  val_data.shape[0])
     # random_perm = np.random.permutation(train_index)
     # valsize = int(len(train_index)*VAL_FRAC)
     # val_index = random_perm[0:valsize]
