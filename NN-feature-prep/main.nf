@@ -188,8 +188,7 @@ process RENAME_OUT {
     // myFile.renameTo("${dataType}.${chrom}.${cellType}.tar.gz")
     script: 
     """
-    mv $data_gz ${dataType}.${chrom}.${cellType}.tar.gz
-    wait
+    ln -s `readlink -f $data_gz` ${dataType}.${chrom}.${cellType}.tar.gz
     """
 }
 
