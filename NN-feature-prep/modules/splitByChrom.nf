@@ -81,7 +81,7 @@ process splitByChromosomeCOscore {
 }
 
 process  splitByChromosomeDNAseq{
-    memory '5 GB'
+    memory '10 GB'
 
     input:
     tuple val(chr), val(enh_pr), path(index_file), path(numpy_dna)

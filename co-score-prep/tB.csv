@@ -1,0 +1,6 @@
+celltype,repetition,bam
+
+tB,1,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/GM12878/tB_50k_R1.mLb.clN.sorted.bam
+tB,2,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/GM12878/tB_50k_R2.mLb.clN.sorted.bam
+tB,3,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/GM12878/tB_50k_R3.mLb.clN.sorted.bam
+tB,4,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/GM12878/tB_50k_R4.mLb.clN.sorted.bam

@@ -1,7 +1,18 @@
 nextflow.preview.dsl=2
-include { promoter_bed; enhancer_bed } from "${params.codeDir}/NN-feature-prep/modules/pr-enh-prep"
 
-ch_input_fasta = Channel.fromPath(params.species_genome_fasta)
+if (params.species == "hg" ){
+    ch_input_fasta = Channel.fromPath(params.human_genome_fasta)
+}
+else if (params.species == "mm" ){
+    ch_input_fasta = Channel.fromPath(params.mouse_genome_fasta)
+}
+else{
+    println "species (: $params.species) should be hg or mm; "
+    exit 1
+}
+
+ch_enhancer_bed_prep = Channel.fromPath("$params.store_dir/enhancer_${params.species}.bed").combine(Channel.fromPath("$params.store_dir/enhancer_bg_${params.species}.bed"))
+ch_promoter_bed_prep = Channel.fromPath("$params.store_dir/promoter_${params.species}.bed").combine(Channel.fromPath("$params.store_dir/promoter_bg_${params.species}.bed"))
 
 // promoter genomic sequence computation 
 process GENOMIC_SEQUENCE_PROMOTER {
@@ -12,7 +23,7 @@ process GENOMIC_SEQUENCE_PROMOTER {
     path(fasta)
 
     output:
-    file("promoter_DNAseq.hg19.npz.gz")
+    file("promoter_DNAseq.${fasta.baseName}.npz.gz")
 
     script:  
     """
@@ -23,8 +34,8 @@ process GENOMIC_SEQUENCE_PROMOTER {
 
     python -c "import preptools as pt; \
     pt.fasta_to_onehot('promoter.fa', \
-        outp='promoter_DNAseq.hg19.npz')"
-    gzip promoter_DNAseq.hg19.npz
+        outp='promoter_DNAseq.${fasta.baseName}.npz')"
+    gzip promoter_DNAseq.${fasta.baseName}.npz
     """
 }
 
@@ -39,7 +50,7 @@ process GENOMIC_SEQUENCE_ENHANCER {
     path(fasta)
 
     output:
-    file("enhancer_DNAseq.hg19.npz.gz")
+    file("enhancer_DNAseq.${fasta.baseName}.npz.gz")
 
     script:  
     """
@@ -50,18 +61,14 @@ process GENOMIC_SEQUENCE_ENHANCER {
 
     python -c "import preptools as pt; \
     pt.fasta_to_onehot('enhancer.fa', \
-        outp='enhancer_DNAseq.hg19.npz')"
-    gzip enhancer_DNAseq.hg19.npz
+        outp='enhancer_DNAseq.${fasta.baseName}.npz')"
+    gzip enhancer_DNAseq.${fasta.baseName}.npz
     """
 }
 
 
 
 workflow prep_gen_seq{
-
-    ch_promoter_bed_prep = promoter_bed()
-    ch_enhancer_bed_prep = enhancer_bed()
-
     ch_pr_genseq = GENOMIC_SEQUENCE_PROMOTER(ch_promoter_bed_prep, ch_input_fasta)
     ch_enh_genseq = GENOMIC_SEQUENCE_ENHANCER(ch_enhancer_bed_prep, ch_input_fasta)
     emit: ch_enh_genseq.combine(ch_pr_genseq)

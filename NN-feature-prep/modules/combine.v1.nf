@@ -1,4 +1,20 @@
 
+if (params.species == "hg" ){
+  all_chrom = "$params.all_chrom_hg"
+  promoter_headers = "$params.promoter_headers_hg"
+  enhancer_headers = "$params.enhancer_headers"
+  insertRGB="True"
+}
+else if (params.species == "mm" ){
+  all_chrom = "$params.all_chrom_mm"
+  promoter_headers = "$params.promoter_headers_mm"
+  enhancer_headers = "$params.enhancer_headers"
+}
+else{
+    println "species =/= hg/mm $params.species "
+    exit 1
+}
+
 // Combining Data : step 5.0
 // split HiC csv files for parallel preprocessing
 // output : hic.aug.${cellType}.{0-$hic_split_combine}.csv
@@ -54,8 +70,8 @@ process COMBINE_PCHIC_CO_SCORE {
     pt.SelectElements_in_TrainingData('$hic_aug', 
         np.load('$promoter_COscore',allow_pickle=True)['expr'],
         np.load('$enhancer_COscore',allow_pickle=True)['expr'],
-        pd.read_csv('$promoter_bed', delimiter='\t', names=$params.promoter_headers).name, 
-        pd.read_csv('$enhancer_bed', delimiter='\t', names=$params.enhancer_headers).name, 
+        pd.read_csv('$promoter_bed', delimiter='\t', names=$promoter_headers).name, 
+        pd.read_csv('$enhancer_bed', delimiter='\t', names=$enhancer_headers).name, 
         f'promoter_hic.${cellType}.{num}.rep${rep}.npz',
         f'enhancer_hic.${cellType}.{num}.rep${rep}.npz', 
         'expr', 
@@ -294,8 +310,8 @@ process COMBINE_PCHIC_DNA_SEQ {
     pt.SelectElements_in_TrainingData('$hic_aug', \
             reshapeDNA(np.load('$promoter_DNAseq', allow_pickle=True)['sequence']), \
             reshapeDNA(np.load('$enhancer_DNAseq', allow_pickle=True)['sequence']), \
-            pd.read_csv('$promoter_bed', delimiter='\t', names=$params.promoter_headers).name, \
-            pd.read_csv('$enhancer_bed', delimiter='\t', names=$params.enhancer_headers).name, \
+            pd.read_csv('$promoter_bed', delimiter='\t', names=$promoter_headers).name, \
+            pd.read_csv('$enhancer_bed', delimiter='\t', names=$enhancer_headers).name, \
             f'promoter_hic.${cellType}.{num}.DNA_seq.npz', \
             f'enhancer_hic.${cellType}.{num}.DNA_seq.npz', \
             'sequence', \

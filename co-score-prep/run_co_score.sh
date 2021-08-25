@@ -23,4 +23,4 @@ nextflow  -c $SCRIPT_DIR/nextflow.config \
 	-resume "$@"
 	# --bamInput $bamInput
 
-sbatch co-score-prep --bamInput Mon.csv
+#sbatch run_co_score.sh --species hg --bamInput tB.csv

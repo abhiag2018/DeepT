@@ -10,12 +10,25 @@ include {SPLIT_HIC_AUG; COMBINE_PCHIC_CO_SCORE; COMBINE_PCHIC_CO_SCORE_ENH; COMB
     SEPARATE_DATA} from "$projectDir/modules/combine.v1" 
 include {splitByChromosomeBed; splitByChromosomeHiC; splitByChromosomeHiCcross; splitByChromosomeCOscore; splitByChromosomeDNAseq} from "$projectDir/modules/splitByChrom"
 
-ch_enhancer_bed_prep = Channel.fromPath("$params.store_dir/enhancer.bed").combine(Channel.fromPath("$params.store_dir/enhancer_bg.bed"))
-ch_promoter_bed_prep = Channel.fromPath("$params.store_dir/promoter.bed").combine(Channel.fromPath("$params.store_dir/promoter_bg.bed"))
+if (params.species == "hg" ){
+    ch_enhancer_bed_prep = Channel.fromPath("$params.store_dir/hg19-enh-pr/enhancer.bed").combine(Channel.fromPath("$params.store_dir/hg19-enh-pr/enhancer_bg.bed"))
+    ch_promoter_bed_prep = Channel.fromPath("$params.store_dir/hg19-enh-pr/promoter.bed").combine(Channel.fromPath("$params.store_dir/hg19-enh-pr/promoter_bg.bed"))
+    // feature input files
+    // features for promoter and enhancer list (in the same order as the list)
+    ch_dnaseq = Channel.fromPath("$params.store_dir/enhancer_DNAseq.hg19.npz").combine(Channel.fromPath("$params.store_dir/promoter_DNAseq.hg19.npz"))
+}
+else if (params.species == "mm" ){
+    ch_enhancer_bed_prep = Channel.fromPath("$params.store_dir/mm9-enh-pr/enhancer.bed").combine(Channel.fromPath("$params.store_dir/mm9-enh-pr/enhancer_bg.bed"))
+    ch_promoter_bed_prep = Channel.fromPath("$params.store_dir/mm9-enh-pr/promoter.bed").combine(Channel.fromPath("$params.store_dir/mm9-enh-pr/promoter_bg.bed"))
+    // feature input files
+    // features for promoter and enhancer list (in the same order as the list)
+    ch_dnaseq = Channel.fromPath("$params.store_dir/enhancer_DNAseq.mm9.npz").combine(Channel.fromPath("$params.store_dir/promoter_DNAseq.mm9.npz"))
+}
+else{
+    println "species (: $params.species) should be hg or mm; "
+    exit 1
+}
 
-// feature input files
-// features for promoter and enahncer list (in the same order as the list)
-ch_dnaseq = Channel.fromPath("$params.store_dir/enhancer_DNAseq.hg19.npz").combine(Channel.fromPath("$params.store_dir/promoter_DNAseq.hg19.npz"))
 
 Channel.fromPath("$projectDir/co_score_pr.csv")
   .splitCsv(header:true, sep:',')
@@ -27,27 +40,27 @@ Channel.fromPath("$projectDir/co_score_enh.csv")
   .map { row -> [ row.celltype, row.repetition, file("$params.store_dir/$row.npz", checkIfExists: true) ]  }
   .set {ch_enh_co_score}
 
-Channel.fromPath("$projectDir/$params.pchic_data")
+if( params.dtype=="val" ){
+    dtype = "data_val"
+    pchic_data = "pchic_data-val.csv"
+}
+else if( params.dtype=="test" ){
+    dtype = "data_test"
+    pchic_data = "pchic_data-test.csv"
+}
+else if( params.dtype=="train" ){
+    dtype = "data_train"
+    pchic_data = "pchic_data-train.csv"
+}
+else if( params.dtype=="all" ){
+    dtype = "data_all"
+    pchic_data = "pchic_data-all.csv"
+}
+
+Channel.fromPath("$projectDir/$pchic_data")
     .splitCsv(header:true, sep:',')
     .map { row -> [ row.celltype, file("$params.store_dir/$row.hic", checkIfExists: true) ]  }
     .set { ch_hic_aug }
-
-process RENAME_OUT {
-    storeDir "${params.store_dir}"
-    errorStrategy 'finish'
-
-    input:
-    tuple val(chrom), val(dataType), val(cellType), path(data_gz) 
-
-    output:
-    path("${dataType}.${chrom}.${cellType}.tar.gz")
-
-    script: 
-    """
-    mv $data_gz ${dataType}.${chrom}.${cellType}.tar.gz
-    """
-
-}
 
 workflow combine_data{
     take:
@@ -99,6 +112,7 @@ workflow splitByChrom{
         ch_promoter_bed_prep
         ch_dnaseq
         ch_hic_aug
+        data_type
 
     main:
     ch_hic_aug_ChromSplit = ch_chr.combine(ch_hic_aug) | splitByChromosomeHiC
@@ -111,9 +125,11 @@ workflow splitByChrom{
         .filter{ it[4] == 'enhancer_bg' ||  it[4] == 'promoter_bg' }
         .map( it-> [it[0], it[1], it[3]])
 
+
     ch_dnaseq_ = ch_chr.combine(Channel.value(['enh','pr']).flatten().merge(ch_dnaseq.flatten()))
     ch_inp_dnaseq_split = ch_bedsplit_filtered.concat(ch_dnaseq_).groupTuple(by:[0,1])
         .map(it -> [it[0], it[1], it[2][0], it[2][1]])
+
 
     ch_dnaseq_split = splitByChromosomeDNAseq(ch_inp_dnaseq_split)
 
@@ -153,49 +169,54 @@ workflow splitByChrom{
         ch_dnaseq_split_.map( it -> [it[1], it[2]] ),
         ch_hic_aug_ChromSplit.map( it -> [it[1], it[2]] ) )
 
-    emit: deeptact_features
-}
-
-workflow chrom_features{   
-    take: 
-        ch_chr
-        data_type
-
-    main:
-    // NOTE
-    // assert ch_chr.count() == 1 // since splitByChrom can only handle one input; otherwise the channels get mixed up
-    features_chr = splitByChrom(ch_chr, ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug)
-    features_out = RENAME_OUT(ch_chr.combine(data_type).combine(features_chr))
+    features_out = RENAME_OUT(ch_chr.combine(data_type).combine(deeptact_features))
 
     emit: features_out
 }
 
+process RENAME_OUT {
+    storeDir "${params.store_dir}"
+    errorStrategy 'finish'
 
-workflow chr1{   chrom_features(Channel.value("chr1"),Channel.value(params.dataType)).view() }
-workflow chr2{   chrom_features(Channel.value("chr2"),Channel.value(params.dataType)).view() }
-workflow chr3{   chrom_features(Channel.value("chr3"),Channel.value(params.dataType)).view() }
-workflow chr4{   chrom_features(Channel.value("chr4"),Channel.value(params.dataType)).view() }
-workflow chr5{   chrom_features(Channel.value("chr5"),Channel.value(params.dataType)).view() }
-workflow chr6{   chrom_features(Channel.value("chr6"),Channel.value(params.dataType)).view() }
-workflow chr7{   chrom_features(Channel.value("chr7"),Channel.value(params.dataType)).view() }
-workflow chr8{   chrom_features(Channel.value("chr8"),Channel.value(params.dataType)).view() }
-workflow chr9{   chrom_features(Channel.value("chr9"),Channel.value(params.dataType)).view() }
-workflow chr10{   chrom_features(Channel.value("chr10"),Channel.value(params.dataType)).view() }
-workflow chr11{   chrom_features(Channel.value("chr11"),Channel.value(params.dataType)).view() }
-workflow chr12{   chrom_features(Channel.value("chr12"),Channel.value(params.dataType)).view() }
-workflow chr13{   chrom_features(Channel.value("chr13"),Channel.value(params.dataType)).view() }
-workflow chr14{   chrom_features(Channel.value("chr14"),Channel.value(params.dataType)).view() }
-workflow chr15{   chrom_features(Channel.value("chr15"),Channel.value(params.dataType)).view() }
-workflow chr16{   chrom_features(Channel.value("chr16"),Channel.value(params.dataType)).view() }
-workflow chr17{   chrom_features(Channel.value("chr17"),Channel.value(params.dataType)).view() }
-workflow chr18{   chrom_features(Channel.value("chr18"),Channel.value(params.dataType)).view() }
-workflow chr19{   chrom_features(Channel.value("chr19"),Channel.value(params.dataType)).view() }
-workflow chr20{   chrom_features(Channel.value("chr20"),Channel.value(params.dataType)).view() }
-workflow chr21{   chrom_features(Channel.value("chr21"),Channel.value(params.dataType)).view() }
-workflow chr22{   chrom_features(Channel.value("chr22"),Channel.value(params.dataType)).view() }
-workflow chrX{   chrom_features(Channel.value("chrX"),Channel.value(params.dataType)).view() }
-workflow chrY{   chrom_features(Channel.value("chrY"),Channel.value(params.dataType)).view() }
+    input:
+    tuple val(chrom), val(dataType), val(cellType), path(data_gz) 
 
+    output:
+    path("${dataType}.${chrom}.${cellType}.tar.gz")
+
+    // myFile = file("$data_gz")
+    // myFile.renameTo("${dataType}.${chrom}.${cellType}.tar.gz")
+    script: 
+    """
+    mv $data_gz ${dataType}.${chrom}.${cellType}.tar.gz
+    wait
+    """
+}
+
+workflow chr1{ splitByChrom(Channel.value("chr1"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr2{ splitByChrom(Channel.value("chr2"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr3{ splitByChrom(Channel.value("chr3"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr4{ splitByChrom(Channel.value("chr4"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr5{ splitByChrom(Channel.value("chr5"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr6{ splitByChrom(Channel.value("chr6"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr7{ splitByChrom(Channel.value("chr7"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr8{ splitByChrom(Channel.value("chr8"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr9{ splitByChrom(Channel.value("chr9"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr10{ splitByChrom(Channel.value("chr10"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr11{ splitByChrom(Channel.value("chr11"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr12{ splitByChrom(Channel.value("chr12"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr13{ splitByChrom(Channel.value("chr13"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr14{ splitByChrom(Channel.value("chr14"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr15{ splitByChrom(Channel.value("chr15"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr16{ splitByChrom(Channel.value("chr16"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr17{ splitByChrom(Channel.value("chr17"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr18{ splitByChrom(Channel.value("chr18"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr19{ splitByChrom(Channel.value("chr19"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr20{ splitByChrom(Channel.value("chr20"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr21{ splitByChrom(Channel.value("chr21"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chr22{ splitByChrom(Channel.value("chr22"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chrX{ splitByChrom(Channel.value("chrX"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
+workflow chrY{ splitByChrom(Channel.value("chrY"), ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug, Channel.value(dtype)).view() }
 
 workflow {
     // chr_list = ["chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13","chr14","chr15","chr16","chr17","chr18","chr19","chr20","chr21","chr22","chrX","chrY"]
@@ -203,32 +224,34 @@ workflow {
     if (params.dev){
         chr22()
     }else{            
-        chr1()
-        chr2()
-        chr3()
-        chr4()
-        chr5()
-        chr6()
-        chr7()
-        chr8()
-        chr9()
-        chr10()
-        chr11()
-        chr12()
-        chr13()
-        chr14()
-        chr15()
-        chr16()
-        chr17()
-        chr18()
-        chr19()
-        chr20()
-        chr21()
-        chr22()
-        chrX()
-        chrY()
+        ch_chr1 = chr1()
+        ch_chr2 = chr2()
+        ch_chr3 = chr3()
+        ch_chr4 = chr4()
+        ch_chr5 = chr5()
+        ch_chr6 = chr6()
+        ch_chr7 = chr7()
+        ch_chr8 = chr8()
+        ch_chr9 = chr9()
+        ch_chr10 = chr10()
+        ch_chr11 = chr11()
+        ch_chr12 = chr12()
+        ch_chr13 = chr13()
+        ch_chr14 = chr14()
+        ch_chr15 = chr15()
+        ch_chr16 = chr16()
+        ch_chr17 = chr17()
+        ch_chr18 = chr18()
+        ch_chr19 = chr19()
+        ch_chr20 = chr20()
+        ch_chr21 = chr21()
+        ch_chr22 = chr22()
+        ch_chrX = chrX()
+        ch_chrY = chrY()
+
         data_cross=combine_data(ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, splitByChromosomeHiCcross(ch_hic_aug))
-        RENAME_OUT(Channel.value("chrCROSS").combine(Channel.value(params.dataType)).combine(data_cross)).view()
+        chr_cross = RENAME_OUT(Channel.value("chrCROSS").combine(Channel.value(dtype)).combine(data_cross))
+
     }
 }
 

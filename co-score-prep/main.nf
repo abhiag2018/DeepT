@@ -1,8 +1,36 @@
 nextflow.preview.dsl=2
-include { promoter_bed; enhancer_bed } from "${params.codeDir}/NN-feature-prep/modules/pr-enh-prep"
+// include { promoter_bed; enhancer_bed } from "${params.codeDir}/NN-feature-prep/modules/pr-enh-prep"
 
-ch_chrom_val = Channel.fromList(params.chromList)
-ch_chrLen = Channel.value(params.chromLen_GRCh37v13)
+
+if (params.species == "hg" ){
+  all_chrom = "$params.all_chrom_hg"
+  ch_enhancer_bed_prep = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/enhancer_hg.bed")
+  ch_enhancer_bed_prep_bg = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/enhancer_bg_hg.bed")
+  ch_promoter_bed_prep = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/promoter_hg.bed")
+  ch_promoter_bed_prep_bg = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/promoter_bg_hg.bed")
+  promoter_headers = "$params.promoter_headers_hg"
+  enhancer_headers = "$params.enhancer_headers"
+  insertRGB="True"
+  ch_chrLen = Channel.value(params.chromLen_GRCh37v13)
+}
+else if (params.species == "mm" ){
+  all_chrom = "$params.all_chrom_mm"
+  ch_enhancer_bed_prep = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/enhancer_mm.bed")
+  ch_enhancer_bed_prep_bg = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/enhancer_bg_mm.bed")
+  ch_promoter_bed_prep = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/promoter_mm.bed")
+  ch_promoter_bed_prep_bg = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/promoter_bg_mm.bed")
+  promoter_headers = "$params.promoter_headers_mm"
+  enhancer_headers = "$params.enhancer_headers"
+  insertRGB="False"
+  ch_chrLen = Channel.value(params.chromLen_MGSCv37)
+}
+else{
+    println "species (: $params.species) should be hg or mm; "
+    exit 1
+}
+
+
+ch_chrom_val = Channel.fromList(Eval.me(all_chrom))
 
 if (params.bamInput)     { ch_input = Channel.fromPath(params.bamInput, checkIfExists: true) } else { exit 1, 'bam inputs file not specified! \nUse: --bamInput <file>' }
 
@@ -40,13 +68,13 @@ process CHROM_OPENN_SCORE {
 
 
     script:  
-    len_val=chrLen["chr${chrom}"]
+    len_val=chrLen["${chrom}"]
     """
     python -c "from preptools import getBamCounts; \
     getBamCounts('${bamfile}', \
-        'chr'+'${chrom}', \
+        '${chrom}', \
         $len_val, \
-        outputf='${cell}.rep${rep}.chr${chrom}.npz')"
+        outputf='${cell}.rep${rep}.${chrom}.npz')"
     """
 }
 
@@ -68,7 +96,7 @@ process CHROM_OPENN_SCORE_PROFILE_PROMOTER {
     pt.generate_dnase('$npzlist'.split(), \
         '$promoter', \
         '$promoter_bg', \
-        $params.promoter_headers, \
+        $promoter_headers, \
         $params.bgWindow, \
         'promoter_COscore.${cell}.rep${rep}')"
     gzip promoter_COscore.${cell}.rep${rep}.npz
@@ -92,7 +120,7 @@ process CHROM_OPENN_SCORE_PROFILE_ENHANCER {
     pt.generate_dnase('$npzlist'.split(), \
         '$enhancer', \
         '$enhancer_bg', \
-        $params.enhancer_headers, \
+        $enhancer_headers, \
         $params.bgWindow, \
         'enhancer_COscore.${cell}.rep${rep}')"
     gzip enhancer_COscore.${cell}.rep${rep}.npz
@@ -113,27 +141,22 @@ workflow _prep_co_score{
 
 workflow prep_co_score_enh{
     ch_bam_readcounts_grouped = _prep_co_score()
-    ch_enhancer_bed_prep = enhancer_bed()
-    ch_enhancer_COscore = CHROM_OPENN_SCORE_PROFILE_ENHANCER(ch_bam_readcounts_grouped.combine(ch_enhancer_bed_prep))
+    // ch_enhancer_bed_prep = enhancer_bed()
+
+    ch_enhancer_COscore = CHROM_OPENN_SCORE_PROFILE_ENHANCER(ch_bam_readcounts_grouped.combine(ch_enhancer_bed_prep.merge(ch_enhancer_bed_prep_bg)))
     emit: ch_enhancer_COscore
 }
 
 workflow prep_co_score_pr{
     ch_bam_readcounts_grouped = _prep_co_score()
-    ch_promoter_bed_prep = promoter_bed()
-    ch_promoter_COscore = CHROM_OPENN_SCORE_PROFILE_PROMOTER(ch_bam_readcounts_grouped.combine(ch_promoter_bed_prep))
+    // ch_promoter_bed_prep = promoter_bed()
+    ch_promoter_COscore = CHROM_OPENN_SCORE_PROFILE_PROMOTER(ch_bam_readcounts_grouped.combine(ch_promoter_bed_prep.merge(ch_promoter_bed_prep_bg)))
     emit: ch_promoter_COscore
 }
 
 workflow {
-    ch_bam_readcounts_grouped = _prep_co_score()
-    ch_enhancer_bed_prep = enhancer_bed()
-    ch_promoter_bed_prep = promoter_bed()
-
-    ch_enhancer_COscore = CHROM_OPENN_SCORE_PROFILE_ENHANCER(ch_bam_readcounts_grouped.combine(ch_enhancer_bed_prep))
-    ch_promoter_COscore = CHROM_OPENN_SCORE_PROFILE_PROMOTER(ch_bam_readcounts_grouped.combine(ch_promoter_bed_prep))
-    ch_enhancer_COscore.view()
-    ch_promoter_COscore.view()
+    prep_co_score_enh().view()
+    prep_co_score_pr().view()
 }
 // nextflow  -C DeepTact-input-preprocessing/CO_score.config -C promoter-enhancer-preprocesssing/nextflow.config run DeepTact-input-preprocessing/CO_score_reg_elem.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -with-timeline -resume 
 

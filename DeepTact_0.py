@@ -172,13 +172,13 @@ def split_train_val_bootstrap_3(test=0.2):
     import itertools
     import numpy as np
 
-    npzFiles = glob.glob(f"{dirpath}/train/**/**/*.npz")
+    npzFiles = glob.glob(f"{dirpath}/train*/**/**/*.npz")
     train_index = [npzf[len(dirpath)+1:] for npzf in npzFiles]
 
-    npzFiles = glob.glob(f"{dirpath}/test/**/**/*.npz")
+    npzFiles = glob.glob(f"{dirpath}/test*/**/**/*.npz")
     test_index = [npzf[len(dirpath)+1:] for npzf in npzFiles]
 
-    npzFiles = glob.glob(f"{dirpath}/val/**/**/*.npz")
+    npzFiles = glob.glob(f"{dirpath}/val*/**/**/*.npz")
     val_index = [npzf[len(dirpath)+1:] for npzf in npzFiles]
 
     print("train : ",len(train_index))
@@ -402,17 +402,18 @@ if __name__=="__main__":
 
     ############################ MAIN ###############################
     if job == "train":
-        time_append = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+'-'+''.join(random.choices(string.ascii_uppercase + string.digits,k=10))
+        time_append = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+'-'+''.join(random.choices(string.ascii_uppercase + string.digits,k=3))
         os.makedirs(CELL+'/'+TYPE+'/models_'+time_append, exist_ok=True)
         LOG_DIR = CELL+'/'+TYPE+"/logs_" + time_append
         os.makedirs(LOG_DIR, exist_ok=True)
         train(lim_data=None)
     elif job == "split":
-        split_train_val_bootstrap_3()
+        split_train_val_bootstrap_2()
         # split_train_val_bootstrap()
     elif job == "test":
         # bootstrap_time = ['20210625-035437-SMSQ3NN9UN']
         EVAL_CELL = sys.argv[5]
-        bootstrap_time = sys.argv[6:]
+        appenStr=sys.argv[6]
+        bootstrap_time = sys.argv[7:]
         print(bootstrap_time)
-        evaluate(EVAL_CELL, bootstrap_time, limit_data=None, append_str="")
+        evaluate(EVAL_CELL, bootstrap_time, limit_data=None, append_str=appenStr)

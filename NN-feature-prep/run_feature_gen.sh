@@ -9,8 +9,15 @@ conda activate cube
 ###
 NXF_OPTS='-Xms16g -Xmx64g'
 
-resumeDir=$1; shift
-# nextflow -C NN-feature-prep/nextflow.config run NN-feature-prep/main.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -with-timeline -resume $resumeDir
+if [ "$#" -lt 1 ]; then
+    echo "at least 1 argument <dtype (val/all/train/test)> <resumeID>"
+    echo "$#"
+    exit 1
+fi
+
+dtype=$1; shift
+resumeID=$1; shift
+# nextflow -C NN-feature-prep/nextflow.config run NN-feature-prep/main.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -with-timeline -resume $resumeID
 # nextflow -C DeepTact-input-preprocessing/nextflow-test.config run preprocessing/main.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work"
 
 STORE_DIR="/projects/li-lab/agarwa/CUBE/DeepTact/code/NN-feature-prep"
@@ -23,11 +30,7 @@ nextflow -c $STORE_DIR/nextflow.config \
 	-c $STORE_DIR/configs/pr-enh-prep.config \
 	run $STORE_DIR/main.nf -profile slurm \
 	-w "/fastscratch/agarwa/nf-tmp/work" -with-timeline \
-	-resume $resumeDir "$@" \
+	--dtype $dtype \
+	-resume $resumeID "$@" \
 	## --dev
-# gzip storeDir/*.npz 
 
-
-# --pchic_data pchic_data-val.csv --dataType data_val
-# --pchic_data pchic_data-test.csv --dataType data_test
-# --pchic_data pchic_data-train.csv --dataType data_train

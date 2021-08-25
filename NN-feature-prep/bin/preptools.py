@@ -136,7 +136,7 @@ def makedirs(dirpath,exist_ok = False):
 def fasta_seq_length(fastaf):
     with open(fastaf,'r') as ff:
         for line in ff: 
-            if re.match(">([A-Za-z0-9-:]+):",line):
+            if re.match(">([A-Za-z0-9-:.]+):",line):
                 pass
             else:
                 window = len(line)-1
@@ -219,20 +219,21 @@ def generate_elem_fa(hg19_fa,elem_bed,out_fa="out.fa",dry_run=False):
     # print(f"fasta saved to :{out_fa} ")
     return numbacountparallel(out_fa)
 
-def process_promoter_bed(promoter_allfield,out_path,all_headers,window=1000):
+def process_promoter_bed(promoter_allfield,out_path,all_headers, all_chr,window=1000, insertRGB=True):
     # all_headers = ['chrom', 'txStart', 'txEnd', 'name', 'score', 'strand',
     #        'cdsStart', 'cdsEnd', '--', 'exonCount', 'exonStarts',
     #        'exonEnds']
 
 
     all_headers = copy.deepcopy(all_headers)
-    loc = all_headers.index("--")
-    all_headers.remove("--")
+    if insertRGB:
+        loc = all_headers.index("--")
+        all_headers.remove("--")
 
     promoter = pd.read_csv(promoter_allfield,delimiter="\t",header=0).loc[:,all_headers]
-    all_chr = ['chr'+str(x) for x in list(range(1,23))+list('XY')]
     promoter = promoter[promoter.apply(lambda df:df['chrom'] in all_chr,axis=1)]
-    promoter.insert(loc, 'itemRgb', 0, allow_duplicates=False)
+    if insertRGB:
+        promoter.insert(loc, 'itemRgb', 0, allow_duplicates=False)
     # func_name = lambda df:df['name']+"::"+df['chrom']+":"+str(df['txStart'])+"-"+str(df['txEnd'])
     # promoter['name'] = promoter.apply(func_name,axis=1)
 
