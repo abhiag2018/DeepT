@@ -194,17 +194,20 @@ def split_train_val_bootstrap_2(test=0.2):
     dirpath=f"{CELL}/{TYPE}/data"
     import itertools
     import numpy as np
-    chroms = np.random.permutation(glob.glob(f"{dirpath}/**"))
+    chroms = np.random.permutation(glob.glob(f"{dirpath}/chr*"))
+
+
+    train_idx = int((1-test)*len(chroms))
 
     npzFiles = []
-    for chrom in itertools.islice(chroms,20):
+    for chrom in itertools.islice(chroms,train_idx):
         tmp = glob.glob(f"{chrom}/data/*.npz")
         print(len(tmp),chrom.split("/")[-1])
         npzFiles = npzFiles + tmp
     train_index = list(npzf[len(dirpath)+1:] for npzf in npzFiles)
 
     npzFiles = []
-    for chrom in itertools.islice(chroms,20,25):
+    for chrom in itertools.islice(chroms,train_idx,len(chroms)):
         tmp = glob.glob(f"{chrom}/data/*.npz")
         print(len(tmp),chrom.split("/")[-1])
         npzFiles = npzFiles + tmp

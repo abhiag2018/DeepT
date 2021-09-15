@@ -9,11 +9,13 @@ conda activate cube
 ###
 NXF_OPTS='-Xms16g -Xmx64g'
 
+basedir="/projects/li-lab/agarwa/CUBE/DeepTact/code/pchic-prep"
 resumeDir=$1
-nextflow -c nextflow.config \
+nextflow -c $basedir/nextflow.config \
 	-c params.config \
-	-c ../pr-enh-prep/params.config \
-	-c ../genome-seq-prep/params.config \
-	run main.nf -profile slurm \
-	-w "/fastscratch/agarwa/nf-tmp/work" -with-timeline -resume $resumeDir 
-	# --dev \
+	-c $basedir/../pr-enh-prep/params.config \
+	-c $basedir/../genome-seq-prep/params.config \
+	run $basedir/main.nf -profile slurm \
+	-w "/fastscratch/agarwa/nf-tmp/work" -with-timeline -resume ${resumeDir} "$@"
+	# --species mm 
+	# --dev

@@ -1,9 +1,22 @@
 nextflow.preview.dsl=2
 include { prep_gen_seq } from "${params.codeDir}/NN-feature-prep/modules/genome-seq-prep"
 
-ch_cellTypes = Channel.fromList(params.cellTypes)
-ch_hic_input = Channel.fromPath( params.dev ? params.hic_dev : params.hic_input)
-ch_gtf_input = Channel.fromPath(params.gtf_transcript_to_gene)
+if (params.species == "hg" ){
+    ch_cellTypes = Channel.fromList(params.cellTypes_hg)
+    ch_hic_input = Channel.fromPath( params.dev ? params.hic_dev_hg : params.hic_input_hg)
+    ch_gtf_input = Channel.fromPath(params.gtf_transcript_to_gene_hg)
+    all_chrom = params.all_chrom_hg
+}
+else if (params.species == "mm" ){
+    ch_cellTypes = Channel.fromList(params.cellTypes_mm)
+    ch_hic_input = Channel.fromPath( params.dev ? params.hic_dev_mm : params.hic_input_mm)
+    ch_gtf_input = Channel.fromPath(params.gtf_transcript_to_gene_mm)
+    all_chrom = params.all_chrom_mm
+}
+else{
+    println "species (: $params.species) should be hg or mm; "
+    exit 1
+}
 
 hic_split_num = params.dev ? 2 : params.hic_split_process
 
@@ -130,7 +143,8 @@ process GEN_NEG_LABEL {
         $params.promoter_window, \
         $params.enhancer_window, \
         hic_out = 'hic.pos.neg.${cellType}.csv', \
-        numSamples=$pos_neg_interac_ratio )"
+        numSamples=$pos_neg_interac_ratio, \
+        all_chrom = [x[3:] for x in $all_chrom] )"
     rm $enhancer_dnaseq $promoter_dnaseq
     """ 
 }

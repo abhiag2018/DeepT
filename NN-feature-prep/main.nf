@@ -220,9 +220,9 @@ workflow chrY{ splitByChrom(Channel.value("chrY"), ch_enh_co_score, ch_enhancer_
 workflow {
     // chr_list = ["chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13","chr14","chr15","chr16","chr17","chr18","chr19","chr20","chr21","chr22","chrX","chrY"]
     // ch_chr = params.dev ? Channel.value("chr22") : Channel.value(chr_list).flatten()
-    if (params.dev){
+    if (params.dev && params.splitByChr){
         chr22()
-    }else{            
+    }else if (params.splitByChr){            
         ch_chr1 = chr1()
         ch_chr2 = chr2()
         ch_chr3 = chr3()
@@ -251,8 +251,11 @@ workflow {
         data_cross=combine_data(ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, splitByChromosomeHiCcross(ch_hic_aug))
         chr_cross = RENAME_OUT(Channel.value("chrCROSS").combine(Channel.value(dtype)).combine(data_cross))
 
+    }else{
+        combine_data(ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, ch_hic_aug)
     }
 }
+
 
 
 

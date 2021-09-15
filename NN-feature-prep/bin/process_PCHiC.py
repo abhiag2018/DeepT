@@ -203,7 +203,7 @@ def intersectHiCElem(pchicDF, elemMid, chrom, intersectWith = 'bait'):
 # function for checking whether there is any element within the range of start and end values
 checkInter =lambda st,en,elem:sum((st<=elem) & (elem<en))>0
 
-def HiCTrainingNegLabel(hicTSV, cell, th, pos_training, promoter_dna, enhancer_dna, prwin, enhwin,hic_out = None, numSamples=None):
+def HiCTrainingNegLabel(hicTSV, cell, th, pos_training, promoter_dna, enhancer_dna, prwin, enhwin,hic_out = None, numSamples=None, all_chrom = list([str(x) for x in range(1,23)]) + list('XY')):
     """
     add negative training labels according to histogram of positive training labels
     ignore those randomly chosen negative elements that have threshold higher than th. 
@@ -235,8 +235,6 @@ def HiCTrainingNegLabel(hicTSV, cell, th, pos_training, promoter_dna, enhancer_d
 
     prDict = pt.getChrDict(promoter_dna)
     enhDict = pt.getChrDict(enhancer_dna)
-
-    all_chrom = list([str(x) for x in range(1,23)]) + list('XY')
 
     promoters = []
     enhancers=[]

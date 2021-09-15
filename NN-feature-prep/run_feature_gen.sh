@@ -31,6 +31,7 @@ nextflow -c $STORE_DIR/nextflow.config \
 	run $STORE_DIR/main.nf -profile slurm \
 	-w "/fastscratch/agarwa/nf-tmp/work" -with-timeline \
 	--dtype $dtype \
-	-resume $resumeID "$@" \
+	-resume $resumeID "$@" 
+	## --splitByChr \
 	## --dev
 
