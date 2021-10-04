@@ -1,0 +1,6 @@
+celltype,hic
+
+tB,hic.pos.neg.tB.train.aug.csv
+nCD4,hic.pos.neg.nCD4.train.aug.csv
+Mon,hic.pos.neg.Mon.train.aug.csv
+nCD8,hic.pos.neg.nCD8.train.aug.csv

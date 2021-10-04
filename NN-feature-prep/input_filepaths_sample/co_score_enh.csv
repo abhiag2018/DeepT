@@ -1,0 +1,8 @@
+celltype,repetition,npz
+
+mouseB,1,enhancer_COscore.mouseB.rep1.npz
+mouseB,2,enhancer_COscore.mouseB.rep2.npz
+mouseB,3,enhancer_COscore.mouseB.rep3.npz
+mouseB,4,enhancer_COscore.mouseB.rep4.npz
+mouseB,5,enhancer_COscore.mouseB.rep5.npz
+mouseB,6,enhancer_COscore.mouseB.rep6.npz
