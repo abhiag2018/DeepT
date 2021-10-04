@@ -109,6 +109,9 @@ def splitCSV(input_path, out_paths, readArgs = {}, writeArgs = {}, prefix=None, 
 
     df = pd.read_csv(input_path,**readArgs) # reading file
     max_lines = len(df)
+    if max_lines==0:
+        df.to_csv(out_paths[0],**writeArgs) 
+        return 0
     numlines = int(np.floor(max_lines/N))
     low = np.arange(0,max_lines,numlines)[:N]
     high = np.concatenate((low[1:],[max_lines]))
@@ -136,7 +139,7 @@ def makedirs(dirpath,exist_ok = False):
 def fasta_seq_length(fastaf):
     with open(fastaf,'r') as ff:
         for line in ff: 
-            if re.match(">([A-Za-z0-9-:.]+):",line):
+            if re.match(">([A-Za-z0-9-:._]+):",line):
                 pass
             else:
                 window = len(line)-1
