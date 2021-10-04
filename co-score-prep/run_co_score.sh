@@ -11,16 +11,15 @@ NXF_OPTS='-Xms16g -Xmx64g'
 
 
 
-SCRIPT_DIR="/projects/li-lab/agarwa/CUBE/DeepTact/code/co-score-prep"
+basedir="/projects/li-lab/agarwa/CUBE/DeepTact/code/co-score-prep"
 
-# resumeDir=$1; shift
-# bamInput=$1; shift
-nextflow  -c $SCRIPT_DIR/nextflow.config \
-	-c  $SCRIPT_DIR/params.config \
-	-c $SCRIPT_DIR/../pr-enh-prep/params.config \
-	run $SCRIPT_DIR/main.nf \
+species=$1; shift	
+bamInput=$1; shift
+resumeID=$1; shift	
+nextflow run $basedir/main.nf \
 	-profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -with-timeline \
-	-resume "$@"
-	# --bamInput $bamInput
+	--species $species \
+	--bamInput $bamInput \
+	-resume $resumeID "$@"
 
-#sbatch run_co_score.sh --species hg --bamInput tB.csv
+#sbatch run_co_score.sh [species]hg [bamInput]tB.csv

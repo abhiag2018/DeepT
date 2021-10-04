@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --mem=200G
 #SBATCH --qos batch 
-#SBATCH --time 3-00:00:00
+#SBATCH --time 1-00:00:00
 
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate cube
@@ -15,23 +15,21 @@ if [ "$#" -lt 1 ]; then
     exit 1
 fi
 
+species=$1; shift	
 dtype=$1; shift
 resumeID=$1; shift
 # nextflow -C NN-feature-prep/nextflow.config run NN-feature-prep/main.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -with-timeline -resume $resumeID
 # nextflow -C DeepTact-input-preprocessing/nextflow-test.config run preprocessing/main.nf -profile slurm -w "/fastscratch/agarwa/nf-tmp/work"
 
-STORE_DIR="/projects/li-lab/agarwa/CUBE/DeepTact/code/NN-feature-prep"
+basedir="/projects/li-lab/agarwa/CUBE/DeepTact/code/NN-feature-prep"
 
-# gzip -d storeDir/*.gz
-nextflow -c $STORE_DIR/nextflow.config \
-	-c $STORE_DIR/configs/co-score-prep.config \
-	-c $STORE_DIR/configs/genome-seq-prep.config \
-	-c $STORE_DIR/configs/pchic-prep.config \
-	-c $STORE_DIR/configs/pr-enh-prep.config \
-	run $STORE_DIR/main.nf -profile slurm \
+nextflow run $basedir/main.nf \
+	-profile slurm \
 	-w "/fastscratch/agarwa/nf-tmp/work" -with-timeline \
+	--species $species \
 	--dtype $dtype \
-	-resume $resumeID "$@" 
+	-resume ${resumeID} "$@"
+	# --splitParts 10
 	## --splitByChr \
 	## --dev
 

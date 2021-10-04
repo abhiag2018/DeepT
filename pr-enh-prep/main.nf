@@ -35,7 +35,6 @@ process PREPROCESS_PROMOTER {
     // stdout result
     tuple file("promoter_${params.species}.bed"), file("promoter_bg_${params.species}.bed")
 
-
     script:  
     """
     python -c "from preptools import process_promoter_bed; \

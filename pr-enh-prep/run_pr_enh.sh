@@ -7,12 +7,14 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate cube
 
 ###
-NXF_OPTS='-Xms16g -Xmx64g'
+
+basedir="/projects/li-lab/agarwa/CUBE/DeepTact/code/pr-enh-prep"
 
 species=$1; shift	
 resumeID=$1; shift	
-nextflow -c nextflow.config \
-	-c params.config \
-	run main.nf -profile slurm \
-	-w "/fastscratch/agarwa/nf-tmp/work" -with-timeline --species $species -resume $resumeID "$@"
-	# --dev \
+nextflow run $basedir/main.nf \
+	-profile slurm \
+	-w "/fastscratch/agarwa/nf-tmp/work" -with-timeline \
+	--species $species \
+	-resume $resumeID "$@"
+# --dev \
