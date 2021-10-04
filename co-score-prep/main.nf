@@ -11,7 +11,7 @@ if (params.species == "hg" ){
   promoter_headers = "$params.promoter_headers_hg"
   enhancer_headers = "$params.enhancer_headers"
   insertRGB="True"
-  ch_chrLen = Channel.value(params.chromLen_GRCh37v13)
+  ch_chrLen = Channel.value(params.chromLen_hg)
 }
 else if (params.species == "mm" ){
   all_chrom = "$params.all_chrom_mm"
@@ -22,7 +22,7 @@ else if (params.species == "mm" ){
   promoter_headers = "$params.promoter_headers_mm"
   enhancer_headers = "$params.enhancer_headers"
   insertRGB="False"
-  ch_chrLen = Channel.value(params.chromLen_MGSCv37)
+  ch_chrLen = Channel.value(params.chromLen_mm)
 }
 else{
     println "species (: $params.species) should be hg or mm; "
