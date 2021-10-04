@@ -10,32 +10,28 @@ include {SPLIT_HIC_AUG; COMBINE_PCHIC_CO_SCORE; COMBINE_PCHIC_CO_SCORE_ENH; COMB
     SEPARATE_DATA} from "$projectDir/modules/combine.v1" 
 include {splitByChromosomeBed; splitByChromosomeHiC; splitByChromosomeHiCcross; splitByChromosomeCOscore; splitByChromosomeDNAseq} from "$projectDir/modules/splitByChrom"
 
-if (params.species == "hg" ){
-    ch_enhancer_bed_prep = Channel.fromPath("$params.store_dir/hg19-enh-pr/enhancer.bed").combine(Channel.fromPath("$params.store_dir/hg19-enh-pr/enhancer_bg.bed"))
-    ch_promoter_bed_prep = Channel.fromPath("$params.store_dir/hg19-enh-pr/promoter.bed").combine(Channel.fromPath("$params.store_dir/hg19-enh-pr/promoter_bg.bed"))
-    // feature input files
-    // features for promoter and enhancer list (in the same order as the list)
-    ch_dnaseq = Channel.fromPath("$params.store_dir/enhancer_DNAseq.hg19.npz").combine(Channel.fromPath("$params.store_dir/promoter_DNAseq.hg19.npz"))
-}
-else if (params.species == "mm" ){
-    ch_enhancer_bed_prep = Channel.fromPath("$params.store_dir/mm9-enh-pr/enhancer.bed").combine(Channel.fromPath("$params.store_dir/mm9-enh-pr/enhancer_bg.bed"))
-    ch_promoter_bed_prep = Channel.fromPath("$params.store_dir/mm9-enh-pr/promoter.bed").combine(Channel.fromPath("$params.store_dir/mm9-enh-pr/promoter_bg.bed"))
-    // feature input files
-    // features for promoter and enhancer list (in the same order as the list)
-    ch_dnaseq = Channel.fromPath("$params.store_dir/enhancer_DNAseq.mm9.npz").combine(Channel.fromPath("$params.store_dir/promoter_DNAseq.mm9.npz"))
-}
-else{
-    println "species (: $params.species) should be hg or mm; "
-    exit 1
-}
+Channel.fromPath("dnaseq.csv")
+  .splitCsv(header:true, sep:',')
+  .map { row -> [ file("$params.store_dir/$row.enhancer", checkIfExists: true), file("$params.store_dir/$row.promoter", checkIfExists: true) ]  }
+  .set {ch_dnaseq}
+
+Channel.fromPath("enh_bed.csv")
+  .splitCsv(header:true, sep:',')
+  .map { row -> [ file("$params.store_dir/$row.enhancer", checkIfExists: true), file("$params.store_dir/$row.enhancer_bg", checkIfExists: true) ]  }
+  .set {ch_enhancer_bed_prep}
+
+Channel.fromPath("pr_bed.csv")
+  .splitCsv(header:true, sep:',')
+  .map { row -> [ file("$params.store_dir/$row.promoter", checkIfExists: true), file("$params.store_dir/$row.promoter_bg", checkIfExists: true) ]  }
+  .set {ch_promoter_bed_prep}
 
 
-Channel.fromPath("$projectDir/co_score_pr.csv")
+Channel.fromPath("co_score_pr.csv")
   .splitCsv(header:true, sep:',')
   .map { row -> [ row.celltype, row.repetition, file("$params.store_dir/$row.npz", checkIfExists: true) ]  }
   .set {ch_pr_co_score}
 
-Channel.fromPath("$projectDir/co_score_enh.csv")
+Channel.fromPath("co_score_enh.csv")
   .splitCsv(header:true, sep:',')
   .map { row -> [ row.celltype, row.repetition, file("$params.store_dir/$row.npz", checkIfExists: true) ]  }
   .set {ch_enh_co_score}
@@ -57,7 +53,7 @@ else if( params.dtype=="all" ){
     pchic_data = "pchic_data-all.csv"
 }
 
-Channel.fromPath("$projectDir/$pchic_data")
+Channel.fromPath("$pchic_data")
     .splitCsv(header:true, sep:',')
     .map { row -> [ row.celltype, file("$params.store_dir/$row.hic", checkIfExists: true) ]  }
     .set { ch_hic_aug }
@@ -69,12 +65,13 @@ workflow combine_data{
     ch_pr_co_score
     ch_promoter_bed_prep
     ch_dnaseq
-    ch_hic_aug
+    ch_hic_aug_0
 
     main:
     ch_enh = ch_enh_co_score.combine( ch_enhancer_bed_prep )
     ch_pr = ch_pr_co_score.combine( ch_promoter_bed_prep )
 
+    ch_hic_aug = ch_hic_aug_0.filter{ file(it[1]).countLines()>1 }
     ch_hic_aug_split = SPLIT_HIC_AUG(ch_hic_aug).transpose()//.take( params.dev ? 2 : -1)
 
     ch_combined = ch_enh.join(ch_pr, by:[0,1]).combine(ch_hic_aug_split, by:0)
@@ -221,6 +218,7 @@ workflow {
     // chr_list = ["chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13","chr14","chr15","chr16","chr17","chr18","chr19","chr20","chr21","chr22","chrX","chrY"]
     // ch_chr = params.dev ? Channel.value("chr22") : Channel.value(chr_list).flatten()
     if (params.dev && params.splitByChr){
+        combine_data(ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, splitByChromosomeHiCcross(ch_hic_aug))
         chr22()
     }else if (params.splitByChr){            
         ch_chr1 = chr1()
