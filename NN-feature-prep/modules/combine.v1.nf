@@ -17,7 +17,7 @@ else{
 
 // Combining Data : step 5.0
 // split HiC csv files for parallel preprocessing
-// output : hic.aug.${cellType}.{0-$hic_split_combine}.csv
+// output : hic.aug.${cellType}.{0-$splitParts}.csv
 // time : 1min
 process SPLIT_HIC_AUG{
     tag "hic.aug.${cellType}.{split}.csv"
@@ -31,14 +31,14 @@ process SPLIT_HIC_AUG{
 
     script:
     """
-    num=`wc -l $hic_aug | awk '{print \$1}'`
+    num=\$((`wc -l $hic_aug | awk '{print \$1}'`-1))
     num_part=\$((num/7000))
     python -c "import preptools as pt; \
     pt.splitCSV('$hic_aug', \
         [], \
         readArgs = {}, \
         writeArgs = {'header':True}, prefix='hic.aug.${cellType}.', \
-        split_num= max(min(\$num_part, $params.hic_split_combine),1), \
+        split_num= max(min(\$num_part, $params.splitParts),1), \
         suffix='.csv')"
     """
 }
@@ -443,7 +443,6 @@ process UNZIP {
 }
 
 // Combining Data : step 5.3
-// separate the data into NPZ files.. into $sepdata_split chunks for easy processing in next step
 // output : data_chr.${cellType}.tar.gz
 // time: 1h40m
 process SEPARATE_DATA {
