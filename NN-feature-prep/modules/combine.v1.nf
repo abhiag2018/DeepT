@@ -51,8 +51,9 @@ process SPLIT_HIC_AUG{
 // time : 1h20m
 process COMBINE_PCHIC_CO_SCORE {
     tag "promoter/enhancer_hic.${cellType}.{split}.rep${rep}.h5.gz"
-    memory { 2.GB * task.attempt }
+    memory { 10.GB * task.attempt }
     errorStrategy { task.exitStatus == 137 ? 'retry' : 'terminate' }
+    maxRetries 3
     // afterScript "rm *.npz"
 
     input:
@@ -103,8 +104,9 @@ process COMBINE_PCHIC_CO_SCORE {
 // time : 42m
 process COMBINE_PCHIC_CO_SCORE_ENH {
     tag "enhancer_hic.combined.${cellType}.rep${rep}.h5.gz"
-    memory { 2.GB * task.attempt }
+    memory { 10.GB * task.attempt }
     errorStrategy { task.exitStatus == 137 ? 'retry' : 'terminate' }
+    maxRetries 3
 
     input:
     tuple val(cellType), val(rep), path(enhancer_rep_dat), path(promoter_rep_dat)
@@ -148,8 +150,9 @@ process COMBINE_PCHIC_CO_SCORE_ENH {
 // time : 22m
 process COMBINE_PCHIC_CO_SCORE_PR {
     tag "promoter_hic.combined.${cellType}.rep${rep}.h5.gz"
-    memory { 2.GB * task.attempt }
+    memory { 10.GB * task.attempt }
     errorStrategy { task.exitStatus == 137 ? 'retry' : 'terminate' }
+    maxRetries 3
 
 
     input:
@@ -289,8 +292,9 @@ process COMBINE_CO_SCORE_REPS_PR {
 // time : 1h32m
 process COMBINE_PCHIC_DNA_SEQ {
     tag "promoter/enhancer_hic.${cellType}.{split}.DNA_seq.h5.gz"
-    memory { 2.GB * task.attempt }
+    memory { 10.GB * task.attempt }
     errorStrategy { task.exitStatus == 137 ? 'retry' : 'terminate' }
+    maxRetries 3
 
     input:
     tuple val(cellType), path(hic_aug), path(enhancer_DNAseq), path(promoter_DNAseq), path(enhancer_bed), path(enhancer_bg), path(promoter_bed), path(promoter_bg)
@@ -338,8 +342,9 @@ process COMBINE_PCHIC_DNA_SEQ {
 // time : 6h7m
 process COMBINE_PCHIC_OUT_ENHANCER {
     tag "enhancer_hic.combined.${cellType}.DNA_seq.h5.gz"
-    memory { 2.GB * task.attempt }
+    memory { 10.GB * task.attempt }
     errorStrategy { task.exitStatus == 137 ? 'retry' : 'terminate' }
+    maxRetries 3
 
 
     input:
@@ -385,8 +390,9 @@ process COMBINE_PCHIC_OUT_ENHANCER {
 // time : 3h
 process COMBINE_PCHIC_OUT_PROMOTER {
     tag "promoter_hic.combined.${cellType}.DNA_seq.h5.gz"
-    memory { 2.GB * task.attempt }
+    memory { 10.GB * task.attempt }
     errorStrategy { task.exitStatus == 137 ? 'retry' : 'terminate' }
+    maxRetries 3
 
 
     input:
@@ -448,7 +454,9 @@ process UNZIP {
 process SEPARATE_DATA {
     tag "data_chr.${cellType}.tar.gz"
     clusterOptions = '--qos batch --cpus-per-task 8'
-    errorStrategy 'finish'
+    memory { 100.GB * task.attempt }
+    errorStrategy { task.exitStatus == 137 ? 'retry' : 'terminate' }
+    maxRetries 2
 
     input:
     tuple val(cellType), path(enhancer_hic_CO_gz), path(promoter_hic_CO_gz), path(enhancer_hic_DNAseq_gz), path(promoter_hic_DNAseq_gz), path(hic_aug) 

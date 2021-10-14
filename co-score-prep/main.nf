@@ -4,10 +4,10 @@ nextflow.preview.dsl=2
 
 if (params.species == "hg" ){
   all_chrom = "$params.all_chrom_hg"
-  ch_enhancer_bed_prep = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/enhancer_hg.bed")
-  ch_enhancer_bed_prep_bg = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/enhancer_bg_hg.bed")
-  ch_promoter_bed_prep = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/promoter_hg.bed")
-  ch_promoter_bed_prep_bg = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/promoter_bg_hg.bed")
+  ch_enhancer_bed_prep = Channel.fromPath("$params.store_dir/enhancer_hg.bed")
+  ch_enhancer_bed_prep_bg = Channel.fromPath("$params.store_dir/enhancer_bg_hg.bed")
+  ch_promoter_bed_prep = Channel.fromPath("$params.store_dir/promoter_hg.bed")
+  ch_promoter_bed_prep_bg = Channel.fromPath("$params.store_dir/promoter_bg_hg.bed")
   promoter_headers = "$params.promoter_headers_hg"
   enhancer_headers = "$params.enhancer_headers"
   insertRGB="True"
@@ -15,10 +15,10 @@ if (params.species == "hg" ){
 }
 else if (params.species == "mm" ){
   all_chrom = "$params.all_chrom_mm"
-  ch_enhancer_bed_prep = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/enhancer_mm.bed")
-  ch_enhancer_bed_prep_bg = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/enhancer_bg_mm.bed")
-  ch_promoter_bed_prep = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/promoter_mm.bed")
-  ch_promoter_bed_prep_bg = Channel.fromPath("/projects/li-lab/agarwa/CUBE/DeepTact/code/storeDir/promoter_bg_mm.bed")
+  ch_enhancer_bed_prep = Channel.fromPath("$params.store_dir/enhancer_mm.bed")
+  ch_enhancer_bed_prep_bg = Channel.fromPath("$params.store_dir/enhancer_bg_mm.bed")
+  ch_promoter_bed_prep = Channel.fromPath("$params.store_dir/promoter_mm.bed")
+  ch_promoter_bed_prep_bg = Channel.fromPath("$params.store_dir/promoter_bg_mm.bed")
   promoter_headers = "$params.promoter_headers_mm"
   enhancer_headers = "$params.enhancer_headers"
   insertRGB="False"
@@ -32,9 +32,7 @@ else{
 
 ch_chrom_val = Channel.fromList(Eval.me(all_chrom))
 
-if (params.bamInput)     { ch_input = Channel.fromPath(params.bamInput, checkIfExists: true) } else { exit 1, 'bam inputs file not specified! \nUse: --bamInput <file>' }
-
-ch_input
+Channel.fromPath("bam-input.csv", checkIfExists: true)
   .splitCsv(header:true, sep:',')
   .map { row -> [ row.celltype, row.repetition, file(row.bam, checkIfExists: true) ]  }
   .set {ch_input_bam}
@@ -81,7 +79,7 @@ process CHROM_OPENN_SCORE {
 // DNase/ATAC preprocessing step 3.1
 // generate chromatin openness core profile (COscore) for promoter
 process CHROM_OPENN_SCORE_PROFILE_PROMOTER {
-    storeDir "${params.store_dir}"
+    storeDir "${params.save_dir}"
 
     input:
     tuple val(cell), val(rep), path(npzlist), path(promoter), path(promoter_bg)
@@ -106,7 +104,7 @@ process CHROM_OPENN_SCORE_PROFILE_PROMOTER {
 // DNase/ATAC preprocessing step 3.2
 // generate chromatin openness core profile (COscore) for enhancer
 process CHROM_OPENN_SCORE_PROFILE_ENHANCER {
-    storeDir "${params.store_dir}"
+    storeDir "${params.save_dir}"
 
     input:
     tuple val(cell), val(rep), path(npzlist), path(enhancer), path(enhancer_bg)

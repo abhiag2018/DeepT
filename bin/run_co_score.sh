@@ -10,16 +10,19 @@ conda activate cube
 NXF_OPTS='-Xms16g -Xmx64g'
 
 
+#basedir="/projects/li-lab/agarwa/CUBE/DeepTact/code"
 
-basedir="/projects/li-lab/agarwa/CUBE/DeepTact/code/co-score-prep"
-
+configDir=$1; shift
 species=$1; shift	
-bamInput=$1; shift
 resumeID=$1; shift	
-nextflow run $basedir/main.nf \
+
+basedir=`dirname $configDir`
+ln -sf $configDir $basedir/configs
+
+nextflow run $basedir/co-score-prep/main.nf \
 	-profile slurm -w "/fastscratch/agarwa/nf-tmp/work" -with-timeline \
+	--save_dir `pwd` \
 	--species $species \
-	--bamInput $bamInput \
 	-resume $resumeID "$@"
 
-#sbatch run_co_score.sh [species]hg [bamInput]tB.csv
+#sbatch run_co_score.sh [species]hg 

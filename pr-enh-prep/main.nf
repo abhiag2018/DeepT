@@ -26,7 +26,7 @@ ch_enhancer_bed = Channel.fromPath( enhancer_bedfile )
 
 // promoter pre-processing
 process PREPROCESS_PROMOTER {
-    storeDir "${params.store_dir}"
+    storeDir "${params.save_dir}"
 
     input:
     path(input)
@@ -58,7 +58,7 @@ process PREPROCESS_PROMOTER {
 
 // enhancer pre-processing
 process PREPROCESS_ENHANCER {
-    storeDir "${params.store_dir}"
+    storeDir "${params.save_dir}"
 
     input:
     path(input)

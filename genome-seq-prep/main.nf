@@ -16,7 +16,7 @@ ch_promoter_bed_prep = Channel.fromPath("$params.store_dir/promoter_${params.spe
 
 // promoter genomic sequence computation 
 process GENOMIC_SEQUENCE_PROMOTER {
-    storeDir "${params.store_dir}"
+    storeDir "${params.save_dir}"
 
     input:
     tuple path(promoter), path(promoter_bg)
@@ -43,7 +43,7 @@ process GENOMIC_SEQUENCE_PROMOTER {
 
 // enhancer genomic sequence computation 
 process GENOMIC_SEQUENCE_ENHANCER {
-    storeDir "${params.store_dir}"
+    storeDir "${params.save_dir}"
 
     input:
     tuple path(enhancer), path(enhancer_bg)

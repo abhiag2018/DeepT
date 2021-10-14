@@ -81,7 +81,9 @@ process splitByChromosomeCOscore {
 }
 
 process  splitByChromosomeDNAseq{
-    memory '10 GB'
+    memory { 30.GB * task.attempt }
+    errorStrategy { task.exitStatus == 137 ? 'retry' : 'terminate' }
+    maxRetries 3
 
     input:
     tuple val(chr), val(enh_pr), path(index_file), path(numpy_dna)

@@ -28,34 +28,31 @@ Channel.fromPath("pr_bed.csv")
 
 Channel.fromPath("co_score_pr.csv")
   .splitCsv(header:true, sep:',')
-  .map { row -> [ row.celltype, row.repetition, file("$params.store_dir/$row.npz", checkIfExists: true) ]  }
+  .map { row -> [ row.celltype, row.repetition, file("$row.npz", checkIfExists: true) ]  }
   .set {ch_pr_co_score}
 
 Channel.fromPath("co_score_enh.csv")
   .splitCsv(header:true, sep:',')
-  .map { row -> [ row.celltype, row.repetition, file("$params.store_dir/$row.npz", checkIfExists: true) ]  }
+  .map { row -> [ row.celltype, row.repetition, file("$row.npz", checkIfExists: true) ]  }
   .set {ch_enh_co_score}
 
-if( params.dtype=="val" ){
-    dtype = "data_val"
-    pchic_data = "pchic_data-val.csv"
+
+if(["val","test","train","all"].contains(params.dtype)){
+    dtype = "data_"+params.dtype
+}else{
+    exit 1, "$params.dtype should be in  [val,test,train,all]"
 }
-else if( params.dtype=="test" ){
-    dtype = "data_test"
-    pchic_data = "pchic_data-test.csv"
+
+if( params.dev ){
+    pchic_data = "pchic_data-dev.csv"
 }
-else if( params.dtype=="train" ){
-    dtype = "data_train"
-    pchic_data = "pchic_data-train.csv"
-}
-else if( params.dtype=="all" ){
-    dtype = "data_all"
-    pchic_data = "pchic_data-all.csv"
+else{
+    pchic_data = "pchic_data-"+params.dtype+".csv"   
 }
 
 Channel.fromPath("$pchic_data")
     .splitCsv(header:true, sep:',')
-    .map { row -> [ row.celltype, file("$params.store_dir/$row.hic", checkIfExists: true) ]  }
+    .map { row -> [ row.celltype, file("$row.hic", checkIfExists: true) ]  }
     .set { ch_hic_aug }
 
 workflow combine_data{
@@ -218,7 +215,7 @@ workflow {
     // chr_list = ["chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13","chr14","chr15","chr16","chr17","chr18","chr19","chr20","chr21","chr22","chrX","chrY"]
     // ch_chr = params.dev ? Channel.value("chr22") : Channel.value(chr_list).flatten()
     if (params.dev && params.splitByChr){
-        combine_data(ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, splitByChromosomeHiCcross(ch_hic_aug))
+        // combine_data(ch_enh_co_score, ch_enhancer_bed_prep, ch_pr_co_score, ch_promoter_bed_prep, ch_dnaseq, splitByChromosomeHiCcross(ch_hic_aug))
         chr22()
     }else if (params.splitByChr){            
         ch_chr1 = chr1()

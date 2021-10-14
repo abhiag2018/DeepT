@@ -1,22 +1,30 @@
 nextflow.preview.dsl=2
-include { prep_gen_seq } from "${params.codeDir}/NN-feature-prep/modules/genome-seq-prep"
+// include { prep_gen_seq } from "${params.codeDir}/NN-feature-prep/modules/genome-seq-prep"
 
 if (params.species == "hg" ){
     ch_cellTypes = Channel.fromList(params.cellTypes_hg)
     ch_hic_input = Channel.fromPath( params.dev ? params.hic_dev_hg : params.hic_input_hg)
     ch_gtf_input = Channel.fromPath(params.gtf_transcript_to_gene_hg)
+    // ch_gen_seq = Channel.fromPath("$params.store_dir/enhancer_DNAseq.hg19.npz.gz").combine(Channel.fromPath("$params.store_dir/promoter_DNAseq.hg19.npz.gz"))
     all_chrom = params.all_chrom_hg
 }
 else if (params.species == "mm" ){
     ch_cellTypes = Channel.fromList(params.cellTypes_mm)
     ch_hic_input = Channel.fromPath( params.dev ? params.hic_dev_mm : params.hic_input_mm)
     ch_gtf_input = Channel.fromPath(params.gtf_transcript_to_gene_mm)
+    // ch_gen_seq = Channel.fromPath("$params.store_dir/enhancer_DNAseq.mm9.npz").combine(Channel.fromPath("$params.store_dir/promoter_DNAseq.mm9.npz"))
     all_chrom = params.all_chrom_mm
 }
 else{
     println "species (: $params.species) should be hg or mm; "
     exit 1
 }
+
+Channel.fromPath("dnaseq.csv")
+  .splitCsv(header:true, sep:',')
+  .map { row -> [ file("$params.store_dir/$row.enhancer", checkIfExists: true), file("$params.store_dir/$row.promoter", checkIfExists: true) ]  }
+  .set {ch_gen_seq}
+
 
 hic_split_num = params.dev ? 2 : params.hic_split_process
 
@@ -48,25 +56,37 @@ process SPLIT_HIC {
 // 6 min
 process MATCH_HIC_TO_REG_ELEMENTS {
     input:
-    tuple path(enhancer_npz), path(promoter_npz), path(hic_input), val(cellType)
+    tuple path(enhancer_dnaseq_gz), path(promoter_dnaseq_gz), path(hic_input), val(cellType)
 
     output:
     tuple val(cellType), path('*.pkl')
 
     script:  
+    ext = enhancer_dnaseq_gz.extension
+    if (ext=="gz") {
+        enhancer_npz = enhancer_dnaseq_gz.baseName
+        promoter_npz = promoter_dnaseq_gz.baseName
+    }
+    else{
+        enhancer_npz = enhancer_dnaseq_gz
+        promoter_npz = promoter_dnaseq_gz
+    }
     """
-    gzip -df $enhancer_npz $promoter_npz
+    if [ "$ext" == ".gz" ]; then
+        gzip -df $enhancer_dnaseq_gz
+        gzip -df $promoter_dnaseq_gz
+    fi
     python -c "import preptools as pt; \
     import os; \
     pt.concat_PCHiC_PE('$hic_input', \
-        '$promoter_npz'[:-3], \
-        '$enhancer_npz'[:-3], \
+        '$promoter_npz', \
+        '$enhancer_npz', \
         selectCell='$cellType', \
         threshold = $params.pos_threshold, \
         outputF='pchic_match.${cellType}.'+'$hic_input'.split('.')[0]+'.pkl', \
         sampleFrac=None)
-    os.system('rm $promoter_npz'[:-3])
-    os.system('rm $enhancer_npz'[:-3])"
+    os.system('rm $promoter_npz')
+    os.system('rm $enhancer_npz')"
     """ 
 }
 
@@ -130,10 +150,20 @@ process GEN_NEG_LABEL {
     tuple val(cellType), path("hic.pos.neg.${cellType}.csv")
 
     script:  
-    enhancer_dnaseq = enhancer_dnaseq_gz.baseName
-    promoter_dnaseq = promoter_dnaseq_gz.baseName
+    ext = enhancer_dnaseq_gz.extension
+    if (ext=="gz") {
+        enhancer_dnaseq = enhancer_dnaseq_gz.baseName
+        promoter_dnaseq = promoter_dnaseq_gz.baseName
+    }
+    else{
+        enhancer_dnaseq = enhancer_dnaseq_gz
+        promoter_dnaseq = promoter_dnaseq_gz
+    }
     """
-    gzip -df $enhancer_dnaseq_gz $promoter_dnaseq_gz
+    if [ "$ext" == ".gz" ]; then
+        gzip -df $enhancer_dnaseq_gz
+        gzip -df $promoter_dnaseq_gz
+    fi
     python -c "import process_PCHiC as pchic; \
     pchic.HiCTrainingNegLabel('$hic_input', \
         '$cellType', $params.neg_threshold,  \
@@ -178,7 +208,7 @@ process SPLIT_TEST {
 // PCHi-C processing : step 7
 // augment data
 process GEN_AUGMENTED_LABEL {
-    storeDir "${params.store_dir}"
+    storeDir "${params.save_dir}"
 
     input:
     tuple val(cellType), path(hic_pos_neg), val(aug_len), val(hic_aug_factor)
@@ -203,7 +233,7 @@ process GEN_AUGMENTED_LABEL {
 }
 
 workflow prep_pchic{
-    ch_gen_seq = prep_gen_seq()
+    // ch_gen_seq = prep_gen_seq()
     ch_hic_cell_regElements = SPLIT_HIC(ch_hic_input).flatten().combine(ch_cellTypes)
 
     ch_hic_match = MATCH_HIC_TO_REG_ELEMENTS(ch_gen_seq.combine(ch_hic_cell_regElements))

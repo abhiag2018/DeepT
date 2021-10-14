@@ -8,11 +8,16 @@ conda activate cube
 
 ###
 
-basedir="/projects/li-lab/agarwa/CUBE/DeepTact/code/pr-enh-prep"
+#basedir="/projects/li-lab/agarwa/CUBE/DeepTact/code"
 
+configDir=$1; shift
 species=$1; shift	
 resumeID=$1; shift	
-nextflow run $basedir/main.nf \
+
+basedir=`dirname $configDir` 
+ln -sf $configDir $basedir/configs
+
+nextflow run $basedir/pr-enh-prep/main.nf \
 	-profile slurm \
 	-w "/fastscratch/agarwa/nf-tmp/work" -with-timeline \
 	--species $species \
