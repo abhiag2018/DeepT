@@ -103,8 +103,10 @@ def hicUniqueMatch(hicGroupMatched, hic_out_PE=None, hic_out_EP=None):
     #     minidx = min(range(len(elem)),key=lambda i:int(elem[i][0])-MID)
     #     return [elem[minidx][0],elem[minidx][1]]
 
-    pehic['baitPr'] = pehic.apply(lambda df:uniqMatchPr(df['baitStart'],df['baitEnd'],df['baitPr']),axis=1)
-    ephic['oePr'] = ephic.apply(lambda df:uniqMatchPr(df['oeStart'],df['oeEnd'],df['oePr']),axis=1)
+    if pehic.shape[0]>0:
+        pehic['baitPr'] = pehic.apply(lambda df:uniqMatchPr(df['baitStart'],df['baitEnd'],df['baitPr']),axis=1)
+    if ephic.shape[0]>0:
+        ephic['oePr'] = ephic.apply(lambda df:uniqMatchPr(df['oeStart'],df['oeEnd'],df['oePr']),axis=1)
 
     # pehic['oeEnh'] = pehic.apply(lambda df:uniqMatchEnh(df['oeStart'],df['oeEnd'],df['oeEnh']),axis=1)
     # ephic['baitEnh'] = ephic.apply(lambda df:uniqMatchEnh(df['baitStart'],df['baitEnd'],df['baitEnh']),axis=1)
@@ -325,6 +327,7 @@ def train_augment(cell_traindata, cell_train_aug, aug_len_enh, aug_len_pr, aug_s
     train_augDF = pd.concat(map(lambda x:genDF(*x), train_data.iterrows()), ignore_index=True)
     train_augDF['index']=train_augDF.index
     train_augDF.to_csv(cell_train_aug, index=False)
+    print(f"generated {train_augDF.shape} interactions (pos+neg)",flush=True)
     return 0
 
 def SelectElements_DNase(args, cell_trainData, bamfiles_cell, dnaseTmpDir, all_prList, all_enhList, outname = "Train", skip_assert = False):

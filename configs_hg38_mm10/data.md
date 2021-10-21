@@ -34,6 +34,8 @@ local file: $dataDir/mm10_ncbiRefSeq.bed
 
 https://genome.ucsc.edu/cgi-bin/hgTables
 
+https://www.ncbi.nlm.nih.gov/datasets/genomes/?taxon=10090
+
 output format : GTF
 
 ## Enhancer List

@@ -1,0 +1,4 @@
+celltype,repetition,bam
+
+t2d_preadipocyte,1,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/CUBE_T2D/adipose/t2d_preadipocyte/preadipocyte_R1.mLb.clN.sorted.bam
+t2d_preadipocyte,2,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/CUBE_T2D/adipose/t2d_preadipocyte/preadipocyte_R2.mLb.clN.sorted.bam

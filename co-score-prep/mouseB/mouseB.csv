@@ -1,0 +1,8 @@
+celltype,repetition,bam
+
+mouseB,1,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/mouse_b_cell/mouseB_R1.mLb.clN.sorted.bam
+mouseB,2,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/mouse_b_cell/mouseB_R2.mLb.clN.sorted.bam
+mouseB,3,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/mouse_b_cell/mouseB_R3.mLb.clN.sorted.bam
+mouseB,4,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/mouse_b_cell/mouseB_R4.mLb.clN.sorted.bam
+mouseB,5,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/mouse_b_cell/mouseB_R5.mLb.clN.sorted.bam
+mouseB,6,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/ATAC-Seq/mouse_b_cell/mouseB_R6.mLb.clN.sorted.bam

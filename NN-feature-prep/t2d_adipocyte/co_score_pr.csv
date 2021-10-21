@@ -1,0 +1,5 @@
+celltype,repetition,npz
+
+t2d_adipocyte,1,promoter_COscore.t2d_adipocyte.rep1.npz
+t2d_adipocyte,2,promoter_COscore.t2d_adipocyte.rep2.npz
+t2d_adipocyte,3,promoter_COscore.t2d_adipocyte.rep3.npz

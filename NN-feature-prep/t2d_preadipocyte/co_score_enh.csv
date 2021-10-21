@@ -1,0 +1,4 @@
+celltype,repetition,npz
+
+t2d_preadipocyte,1,enhancer_COscore.t2d_preadipocyte.rep1.npz
+t2d_preadipocyte,2,enhancer_COscore.t2d_preadipocyte.rep2.npz

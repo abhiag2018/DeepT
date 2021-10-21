@@ -1,0 +1,562 @@
+<!doctype html>
+<!--
+  ~ Copyright 2013-2019, Centre for Genomic Regulation (CRG)
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~     http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<script type="text/javascript">
+var prot = (("https:" == document.location.protocol) ? "https://" : "http://");
+document.write(unescape("%3Cscript src='" + prot + "code.jquery.com/jquery-latest.min.js' type='text/javascript' %3E%3C/script%3E"));
+document.write(unescape("%3Cscript src='" + prot + "d3js.org/d3.v3.min.js' charset='utf-8' type='text/javascript' %3E%3C/script%3E"));
+document.write(unescape("%3Cscript src='" + prot + "cdn.rawgit.com/nextflow-io/d3-timeline/82622c4cc35bac7283b3a317826b0709ac1ae476/src/d3-timeline.js' type='text/javascript' %3E%3C/script%3E"));
+</script>
+<style type="text/css">
+* {
+  font-family: 'Lato', 'Helvetica Neue', Arial, Helvetica, sans-serif;
+}
+
+.axis path,
+.axis line {
+fill: none;
+  stroke: black;
+  shape-rendering: crispEdges;
+}
+
+.axis text {
+  font-size: 10px;
+}
+
+div#timeline g text {
+  font-size: 13px;
+}
+
+text.timeline-label {
+  font-size: 13px;
+}
+
+#timeline2 .axis {
+  transform: translate(0px,30px);
+  -ms-transform: translate(0px,30px); /* IE 9 */
+  -webkit-transform: translate(0px,30px); /* Safari and Chrome */
+  -o-transform: translate(0px,30px); /* Opera */
+  -moz-transform: translate(0px,30px); /* Firefox */
+}
+
+.coloredDiv {
+  height:20px; width:20px; float:left;
+}
+
+#footer {
+  padding-top: 3em; color: #bfbfbf; font-size: 13px;
+}
+
+#footer a:visited {
+  color: #bfbfbf;
+  text-decoration: underline;
+}
+</style>
+<script type="text/javascript">
+var handler=null;
+// see https://github.com/mbostock/d3/wiki/Ordinal-Scales#category20c
+var colors = d3.scale.category20c().domain(d3.range(0,20)).range()
+
+function c0(index) { return "#9c9c9c"; }
+function c1(index) { return "#bdbdbd"; }
+function c2(index) { return colors[index % 16]; } // <-- note: uses only the first 16 colors
+
+var elapsed="45.2s"
+var beginningMillis=1633214555265;
+var endingMillis=1633302243436;
+var data=[
+{"label": "chr13:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302208162, "ending_time": 1633302210734, "color":c1(0)}, {"starting_time": 1633302210734, "ending_time": 1633302218796, "color":c2(0), "label": "12.6s \/ 3.3 MB"}, {"starting_time": 1633302218796, "ending_time": 1633302220731, "color":c1(0)}]},
+{"label": "chr3:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214559651, "ending_time": 1633214562717, "color":c1(1)}, {"starting_time": 1633214562717, "ending_time": 1633214562949, "color":c0(1), "label": "3.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "splitByChromosomeHiCcross (1)", "times": [{"starting_time": 1633302208320, "ending_time": 1633302210842, "color":c1(2)}, {"starting_time": 1633302210842, "ending_time": 1633302228682, "color":c2(2), "label": "22.8s \/ 3.3 MB"}, {"starting_time": 1633302228682, "ending_time": 1633302231112, "color":c1(2)}]},
+{"label": "chr13:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214558959, "ending_time": 1633214562499, "color":c1(3)}, {"starting_time": 1633214562499, "ending_time": 1633214562675, "color":c0(3), "label": "3.5s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr1:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214558129, "ending_time": 1633214562276, "color":c1(4)}, {"starting_time": 1633214562276, "ending_time": 1633214562497, "color":c0(4), "label": "4.2s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr6:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214559555, "ending_time": 1633214562661, "color":c1(5)}, {"starting_time": 1633214562661, "ending_time": 1633214562843, "color":c0(5), "label": "3.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr10:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214559118, "ending_time": 1633214562536, "color":c1(6)}, {"starting_time": 1633214562536, "ending_time": 1633214562716, "color":c0(6), "label": "3.4s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr22:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214558697, "ending_time": 1633214562429, "color":c1(7)}, {"starting_time": 1633214562429, "ending_time": 1633214562629, "color":c0(7), "label": "3.7s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr5:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214559897, "ending_time": 1633214562802, "color":c1(8)}, {"starting_time": 1633214562802, "ending_time": 1633214562990, "color":c0(8), "label": "2.9s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr2:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214560299, "ending_time": 1633214562917, "color":c1(9)}, {"starting_time": 1633214562917, "ending_time": 1633214563110, "color":c0(9), "label": "2.6s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr20:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214556545, "ending_time": 1633214557476, "color":c1(10)}, {"starting_time": 1633214557476, "ending_time": 1633214557644, "color":c0(10), "label": "5.6s \/ 1.6 MB \/ CACHED"}, {"starting_time": 1633214557644, "ending_time": 1633214562115, "color":c1(10)}]},
+{"label": "chr19:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214555356, "ending_time": 1633214557068, "color":c1(11)}, {"starting_time": 1633214557068, "ending_time": 1633214557262, "color":c0(11), "label": "6.6s \/ 1.6 MB \/ CACHED"}, {"starting_time": 1633214557262, "ending_time": 1633214561906, "color":c1(11)}]},
+{"label": "chr7:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214557287, "ending_time": 1633214562178, "color":c1(12)}, {"starting_time": 1633214562178, "ending_time": 1633214562353, "color":c0(12), "label": "4.9s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr6:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214558538, "ending_time": 1633214562377, "color":c1(5)}, {"starting_time": 1633214562377, "ending_time": 1633214562546, "color":c0(5), "label": "3.8s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chrX:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214561150, "ending_time": 1633214563018, "color":c1(13)}, {"starting_time": 1633214563018, "ending_time": 1633214563194, "color":c0(13), "label": "1.9s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr12:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214556922, "ending_time": 1633214562135, "color":c1(14)}, {"starting_time": 1633214562135, "ending_time": 1633214562318, "color":c0(14), "label": "5.2s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr2:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214557425, "ending_time": 1633214562220, "color":c1(9)}, {"starting_time": 1633214562220, "ending_time": 1633214562398, "color":c0(9), "label": "4.8s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr7:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214559752, "ending_time": 1633214562748, "color":c1(12)}, {"starting_time": 1633214562748, "ending_time": 1633214562938, "color":c0(12), "label": "3s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr5:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214555923, "ending_time": 1633214557260, "color":c1(8)}, {"starting_time": 1633214557260, "ending_time": 1633214557439, "color":c0(8), "label": "6.1s \/ 1.6 MB \/ CACHED"}, {"starting_time": 1633214557439, "ending_time": 1633214561993, "color":c1(8)}]},
+{"label": "chr22:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214556447, "ending_time": 1633214557442, "color":c1(7)}, {"starting_time": 1633214557442, "ending_time": 1633214557612, "color":c0(7), "label": "5.6s \/ 1.6 MB \/ CACHED"}, {"starting_time": 1633214557612, "ending_time": 1633214562096, "color":c1(7)}]},
+{"label": "chr11:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214556152, "ending_time": 1633214557341, "color":c1(15)}, {"starting_time": 1633214557341, "ending_time": 1633214557524, "color":c0(15), "label": "5.9s \/ 1.6 MB \/ CACHED"}, {"starting_time": 1633214557524, "ending_time": 1633214562033, "color":c1(15)}]},
+{"label": "chr18:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214556247, "ending_time": 1633214557376, "color":c1(16)}, {"starting_time": 1633214557376, "ending_time": 1633214557542, "color":c0(16), "label": "5.8s \/ 1.6 MB \/ CACHED"}, {"starting_time": 1633214557542, "ending_time": 1633214562056, "color":c1(16)}]},
+{"label": "chr15:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214556802, "ending_time": 1633214557713, "color":c1(17)}, {"starting_time": 1633214557713, "ending_time": 1633214557968, "color":c0(17), "label": "946ms \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr8:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214561387, "ending_time": 1633214563532, "color":c1(18)}, {"starting_time": 1633214563532, "ending_time": 1633214563731, "color":c0(18), "label": "2.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr11:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214558907, "ending_time": 1633214562470, "color":c1(15)}, {"starting_time": 1633214562470, "ending_time": 1633214562641, "color":c0(15), "label": "3.6s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr16:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214556345, "ending_time": 1633214557403, "color":c1(19)}, {"starting_time": 1633214557403, "ending_time": 1633214557574, "color":c0(19), "label": "5.7s \/ 1.6 MB \/ CACHED"}, {"starting_time": 1633214557574, "ending_time": 1633214562078, "color":c1(19)}]},
+{"label": "chr17:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214556030, "ending_time": 1633214557307, "color":c1(20)}, {"starting_time": 1633214557307, "ending_time": 1633214557537, "color":c0(20), "label": "6s \/ 1.6 MB \/ CACHED"}, {"starting_time": 1633214557537, "ending_time": 1633214562012, "color":c1(20)}]},
+{"label": "chr14:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214556644, "ending_time": 1633214557499, "color":c1(21)}, {"starting_time": 1633214557499, "ending_time": 1633214557666, "color":c0(21), "label": "893ms \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr9:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214555582, "ending_time": 1633214557137, "color":c1(22)}, {"starting_time": 1633214557137, "ending_time": 1633214557314, "color":c0(22), "label": "6.4s \/ 1.6 MB \/ CACHED"}, {"starting_time": 1633214557314, "ending_time": 1633214561943, "color":c1(22)}]},
+{"label": "chr21:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214561322, "ending_time": 1633214563252, "color":c1(23)}, {"starting_time": 1633214563252, "ending_time": 1633214563418, "color":c0(23), "label": "2.1s \/ 1.6 MB \/ CACHED"}, {"starting_time": 1633214563418, "ending_time": 1633214563467, "color":c1(23)}]},
+{"label": "chr3:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214555265, "ending_time": 1633214557042, "color":c1(1)}, {"starting_time": 1633214557042, "ending_time": 1633214557204, "color":c0(1), "label": "6.6s \/ 1.6 MB \/ CACHED"}, {"starting_time": 1633214557204, "ending_time": 1633214561863, "color":c1(1)}]},
+{"label": "chrY:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214555816, "ending_time": 1633214557225, "color":c1(24)}, {"starting_time": 1633214557225, "ending_time": 1633214557406, "color":c0(24), "label": "6.2s \/ 1.6 MB \/ CACHED"}, {"starting_time": 1633214557406, "ending_time": 1633214561972, "color":c1(24)}]},
+{"label": "chr10:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214558458, "ending_time": 1633214562343, "color":c1(6)}, {"starting_time": 1633214562343, "ending_time": 1633214562515, "color":c0(6), "label": "3.9s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr4:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214557099, "ending_time": 1633214562155, "color":c1(25)}, {"starting_time": 1633214562155, "ending_time": 1633214562318, "color":c0(25), "label": "5.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr17:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214559485, "ending_time": 1633214562641, "color":c1(20)}, {"starting_time": 1633214562641, "ending_time": 1633214562807, "color":c0(20), "label": "3.2s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr20:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214560145, "ending_time": 1633214562892, "color":c1(10)}, {"starting_time": 1633214562892, "ending_time": 1633214563079, "color":c0(10), "label": "2.8s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr14:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214559192, "ending_time": 1633214562553, "color":c1(21)}, {"starting_time": 1633214562553, "ending_time": 1633214562705, "color":c0(21), "label": "3.4s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr4:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214559265, "ending_time": 1633214562573, "color":c1(25)}, {"starting_time": 1633214562573, "ending_time": 1633214562741, "color":c0(25), "label": "3.3s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr1:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214560348, "ending_time": 1633214562941, "color":c1(4)}, {"starting_time": 1633214562941, "ending_time": 1633214563125, "color":c0(4), "label": "2.6s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr19:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214558319, "ending_time": 1633214562314, "color":c1(11)}, {"starting_time": 1633214562314, "ending_time": 1633214562517, "color":c0(11), "label": "4s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr15:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214559604, "ending_time": 1633214562693, "color":c1(17)}, {"starting_time": 1633214562693, "ending_time": 1633214562870, "color":c0(17), "label": "3.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr12:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214560074, "ending_time": 1633214562866, "color":c1(14)}, {"starting_time": 1633214562866, "ending_time": 1633214563033, "color":c0(14), "label": "2.8s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr21:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214559409, "ending_time": 1633214562620, "color":c1(23)}, {"starting_time": 1633214562620, "ending_time": 1633214562785, "color":c0(23), "label": "3.2s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr18:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214559833, "ending_time": 1633214562773, "color":c1(16)}, {"starting_time": 1633214562773, "ending_time": 1633214562965, "color":c0(16), "label": "2.9s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr16:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214559345, "ending_time": 1633214562598, "color":c1(19)}, {"starting_time": 1633214562598, "ending_time": 1633214562773, "color":c0(19), "label": "3.3s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr8:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214559056, "ending_time": 1633214562518, "color":c1(18)}, {"starting_time": 1633214562518, "ending_time": 1633214562792, "color":c0(18), "label": "3.5s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chrX:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214559968, "ending_time": 1633214562836, "color":c1(13)}, {"starting_time": 1633214562836, "ending_time": 1633214563064, "color":c0(13), "label": "2.9s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr9:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214561255, "ending_time": 1633214563131, "color":c1(22)}, {"starting_time": 1633214563131, "ending_time": 1633214563304, "color":c0(22), "label": "1.9s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chrY:splitByChrom:splitByChromosomeBed (1)", "times": [{"starting_time": 1633214558615, "ending_time": 1633214562408, "color":c1(24)}, {"starting_time": 1633214562408, "ending_time": 1633214562580, "color":c0(24), "label": "3.8s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr13:splitByChrom:splitByChromosomeBed (2)", "times": [{"starting_time": 1633214561430, "ending_time": 1633214563555, "color":c1(3)}, {"starting_time": 1633214563555, "ending_time": 1633214563731, "color":c0(3), "label": "2.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr5:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214566503, "ending_time": 1633214567750, "color":c1(8)}, {"starting_time": 1633214567750, "ending_time": 1633214568285, "color":c0(8), "label": "1.3s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr18:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214562926, "ending_time": 1633214567494, "color":c1(16)}, {"starting_time": 1633214567494, "ending_time": 1633214567925, "color":c0(16), "label": "4.6s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr12:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214561827, "ending_time": 1633214563831, "color":c1(14)}, {"starting_time": 1633214563831, "ending_time": 1633214564244, "color":c0(14), "label": "2s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr11:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214566108, "ending_time": 1633214567551, "color":c1(15)}, {"starting_time": 1633214567551, "ending_time": 1633214567950, "color":c0(15), "label": "1.4s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr20:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214567125, "ending_time": 1633214572206, "color":c1(10)}, {"starting_time": 1633214572206, "ending_time": 1633214572738, "color":c0(10), "label": "5.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chrX:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214561743, "ending_time": 1633214563803, "color":c1(13)}, {"starting_time": 1633214563803, "ending_time": 1633214564239, "color":c0(13), "label": "2.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr14:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214566447, "ending_time": 1633214567733, "color":c1(21)}, {"starting_time": 1633214567733, "ending_time": 1633214568210, "color":c0(21), "label": "1.3s \/ 1.5 MB \/ CACHED"}]},
+{"label": "chr21:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214568539, "ending_time": 1633214572644, "color":c1(23)}, {"starting_time": 1633214572644, "ending_time": 1633214573066, "color":c0(23), "label": "4.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr22:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214566742, "ending_time": 1633214567880, "color":c1(7)}, {"starting_time": 1633214567880, "ending_time": 1633214568465, "color":c0(7), "label": "1.1s \/ 1.5 MB \/ CACHED"}]},
+{"label": "chr19:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214562806, "ending_time": 1633214567426, "color":c1(11)}, {"starting_time": 1633214567426, "ending_time": 1633214567900, "color":c0(11), "label": "4.6s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr10:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214561865, "ending_time": 1633214567223, "color":c1(6)}, {"starting_time": 1633214567223, "ending_time": 1633214567834, "color":c0(6), "label": "5.4s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr2:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214566218, "ending_time": 1633214567629, "color":c1(9)}, {"starting_time": 1633214567629, "ending_time": 1633214568065, "color":c0(9), "label": "1.4s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr11:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214562234, "ending_time": 1633214567275, "color":c1(15)}, {"starting_time": 1633214567275, "ending_time": 1633214567778, "color":c0(15), "label": "5s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr2:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214570849, "ending_time": 1633214573030, "color":c1(26)}, {"starting_time": 1633214573030, "ending_time": 1633214579196, "color":c0(26), "label": "6.9s \/ 1.6 GB \/ CACHED"}]},
+{"label": "chr12:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214570435, "ending_time": 1633214572993, "color":c1(27)}, {"starting_time": 1633214572993, "ending_time": 1633214577506, "color":c0(27), "label": "7.2s \/ 1.5 GB \/ CACHED"}, {"starting_time": 1633214577506, "ending_time": 1633214577623, "color":c1(27)}]},
+{"label": "chr7:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214570712, "ending_time": 1633214573023, "color":c1(28)}, {"starting_time": 1633214573023, "ending_time": 1633214579632, "color":c0(28), "label": "11.2s \/ 1.4 GB \/ CACHED"}, {"starting_time": 1633214579632, "ending_time": 1633214581864, "color":c1(28)}]},
+{"label": "chr22:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214566176, "ending_time": 1633214567597, "color":c1(7)}, {"starting_time": 1633214567597, "ending_time": 1633214568081, "color":c0(7), "label": "1.4s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr5:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214569389, "ending_time": 1633214572858, "color":c1(29)}, {"starting_time": 1633214572858, "ending_time": 1633214578711, "color":c0(29), "label": "7.8s \/ 1.6 GB \/ CACHED"}]},
+{"label": "chr21:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214571526, "ending_time": 1633214578015, "color":c1(30)}, {"starting_time": 1633214578015, "ending_time": 1633214582607, "color":c0(30), "label": "10.4s \/ 1.3 GB \/ CACHED"}]},
+{"label": "chr4:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214570491, "ending_time": 1633214573004, "color":c1(31)}, {"starting_time": 1633214573004, "ending_time": 1633214578110, "color":c0(31), "label": "7.2s \/ 1.3 GB \/ CACHED"}]},
+{"label": "chr13:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214571777, "ending_time": 1633214578038, "color":c1(32)}, {"starting_time": 1633214578038, "ending_time": 1633214582800, "color":c0(32), "label": "10.3s \/ 1.3 GB \/ CACHED"}]},
+{"label": "chr19:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214569062, "ending_time": 1633214572828, "color":c1(33)}, {"starting_time": 1633214572828, "ending_time": 1633214576626, "color":c0(33), "label": "8s \/ 1.1 GB \/ CACHED"}, {"starting_time": 1633214576626, "ending_time": 1633214577067, "color":c1(33)}]},
+{"label": "chr9:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214566614, "ending_time": 1633214567816, "color":c1(22)}, {"starting_time": 1633214567816, "ending_time": 1633214568268, "color":c0(22), "label": "1.2s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr10:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214571108, "ending_time": 1633214573059, "color":c1(34)}, {"starting_time": 1633214573059, "ending_time": 1633214578316, "color":c0(34), "label": "6.7s \/ 1.2 GB \/ CACHED"}]},
+{"label": "chr13:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214568614, "ending_time": 1633214572697, "color":c1(3)}, {"starting_time": 1633214572697, "ending_time": 1633214573316, "color":c0(3), "label": "4.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr14:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214568735, "ending_time": 1633214572788, "color":c1(35)}, {"starting_time": 1633214572788, "ending_time": 1633214577558, "color":c0(35), "label": "8.1s \/ 1.4 GB \/ CACHED"}]},
+{"label": "chr10:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214568183, "ending_time": 1633214572510, "color":c1(6)}, {"starting_time": 1633214572510, "ending_time": 1633214572926, "color":c0(6), "label": "4.3s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr2:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633214574222, "ending_time": 1633214578234, "color":c1(26)}]},
+{"label": "chr1:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214571068, "ending_time": 1633214573053, "color":c1(36)}, {"starting_time": 1633214573053, "ending_time": 1633214578132, "color":c0(36), "label": "6.7s \/ 1.3 GB \/ CACHED"}]},
+{"label": "chr9:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214569260, "ending_time": 1633214572847, "color":c1(37)}, {"starting_time": 1633214572847, "ending_time": 1633214577137, "color":c0(37), "label": "7.8s \/ 1.5 GB \/ CACHED"}]},
+{"label": "chrX:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214571407, "ending_time": 1633214573087, "color":c1(38)}, {"starting_time": 1633214573087, "ending_time": 1633214578021, "color":c0(38), "label": "6.6s \/ 1.2 GB \/ CACHED"}]},
+{"label": "chr22:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214570214, "ending_time": 1633214572971, "color":c1(39)}, {"starting_time": 1633214572971, "ending_time": 1633214577388, "color":c0(39), "label": "7.3s \/ 1.5 GB \/ CACHED"}, {"starting_time": 1633214577388, "ending_time": 1633214577527, "color":c1(39)}]},
+{"label": "chr3:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214569004, "ending_time": 1633214572823, "color":c1(40)}, {"starting_time": 1633214572823, "ending_time": 1633214576501, "color":c0(40), "label": "8s \/ 1.1 GB \/ CACHED"}, {"starting_time": 1633214576501, "ending_time": 1633214577047, "color":c1(40)}]},
+{"label": "chrX:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214571474, "ending_time": 1633214578005, "color":c1(38)}, {"starting_time": 1633214578005, "ending_time": 1633214582305, "color":c0(38), "label": "10.4s \/ 1.5 GB \/ CACHED"}]},
+{"label": "chr6:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214571367, "ending_time": 1633214573081, "color":c1(41)}, {"starting_time": 1633214573081, "ending_time": 1633214578622, "color":c0(41), "label": "6.6s \/ 1.6 GB \/ CACHED"}]},
+{"label": "chr3:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214568932, "ending_time": 1633214572818, "color":c1(40)}, {"starting_time": 1633214572818, "ending_time": 1633214578182, "color":c0(40), "label": "8.1s \/ 1.3 GB \/ CACHED"}]},
+{"label": "chr6:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214571320, "ending_time": 1633214573069, "color":c1(41)}, {"starting_time": 1633214573069, "ending_time": 1633214578025, "color":c0(41), "label": "6.6s \/ 1.3 GB \/ CACHED"}]},
+{"label": "chr22:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214570173, "ending_time": 1633214572965, "color":c1(39)}, {"starting_time": 1633214572965, "ending_time": 1633214578740, "color":c0(39), "label": "7.3s \/ 1.5 GB \/ CACHED"}]},
+{"label": "chr9:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214569196, "ending_time": 1633214572841, "color":c1(37)}, {"starting_time": 1633214572841, "ending_time": 1633214577265, "color":c0(37), "label": "7.9s \/ 1.4 GB \/ CACHED"}]},
+{"label": "chr9:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214561622, "ending_time": 1633214563688, "color":c1(22)}, {"starting_time": 1633214563688, "ending_time": 1633214564179, "color":c0(22), "label": "2.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr7:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214562594, "ending_time": 1633214567360, "color":c1(12)}, {"starting_time": 1633214567360, "ending_time": 1633214567852, "color":c0(12), "label": "4.8s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr12:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214562050, "ending_time": 1633214567238, "color":c1(14)}, {"starting_time": 1633214567238, "ending_time": 1633214567732, "color":c0(14), "label": "5.2s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr18:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214569994, "ending_time": 1633214572907, "color":c1(42)}, {"starting_time": 1633214572907, "ending_time": 1633214577245, "color":c0(42), "label": "7.4s \/ 1.4 GB \/ CACHED"}, {"starting_time": 1633214577245, "ending_time": 1633214577394, "color":c1(42)}]},
+{"label": "chr3:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214568495, "ending_time": 1633214572603, "color":c1(1)}, {"starting_time": 1633214572603, "ending_time": 1633214573132, "color":c0(1), "label": "4.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr4:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214561579, "ending_time": 1633214563651, "color":c1(25)}, {"starting_time": 1633214563651, "ending_time": 1633214564170, "color":c0(25), "label": "2.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr1:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214568696, "ending_time": 1633214572765, "color":c1(4)}, {"starting_time": 1633214572765, "ending_time": 1633214573159, "color":c0(4), "label": "4.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr1:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214566833, "ending_time": 1633214567932, "color":c1(4)}, {"starting_time": 1633214567932, "ending_time": 1633214568494, "color":c0(4), "label": "1.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chrX:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214568074, "ending_time": 1633214572468, "color":c1(13)}, {"starting_time": 1633214572468, "ending_time": 1633214572943, "color":c0(13), "label": "4.4s \/ 1.5 MB \/ CACHED"}]},
+{"label": "chr16:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214561698, "ending_time": 1633214563752, "color":c1(19)}, {"starting_time": 1633214563752, "ending_time": 1633214564297, "color":c0(19), "label": "2.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr19:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214561659, "ending_time": 1633214563725, "color":c1(11)}, {"starting_time": 1633214563725, "ending_time": 1633214564273, "color":c0(11), "label": "2.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr2:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214567995, "ending_time": 1633214572449, "color":c1(9)}, {"starting_time": 1633214572449, "ending_time": 1633214572897, "color":c0(9), "label": "4.5s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr6:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214566546, "ending_time": 1633214567772, "color":c1(5)}, {"starting_time": 1633214567772, "ending_time": 1633214568326, "color":c0(5), "label": "1.2s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chrY:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214568573, "ending_time": 1633214572669, "color":c1(24)}, {"starting_time": 1633214572669, "ending_time": 1633214573157, "color":c0(24), "label": "4.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr18:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214569941, "ending_time": 1633214572901, "color":c1(42)}, {"starting_time": 1633214572901, "ending_time": 1633214577660, "color":c0(42), "label": "7.4s \/ 1.4 GB \/ CACHED"}]},
+{"label": "chr17:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214563027, "ending_time": 1633214567515, "color":c1(20)}, {"starting_time": 1633214567515, "ending_time": 1633214567999, "color":c0(20), "label": "4.5s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr6:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214566926, "ending_time": 1633214572169, "color":c1(5)}, {"starting_time": 1633214572169, "ending_time": 1633214572578, "color":c0(5), "label": "5.2s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr3:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214561540, "ending_time": 1633214563594, "color":c1(1)}, {"starting_time": 1633214563594, "ending_time": 1633214564089, "color":c0(1), "label": "2.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr15:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214562361, "ending_time": 1633214567321, "color":c1(17)}, {"starting_time": 1633214567321, "ending_time": 1633214567793, "color":c0(17), "label": "5s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr7:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214567760, "ending_time": 1633214572323, "color":c1(12)}, {"starting_time": 1633214572323, "ending_time": 1633214572692, "color":c0(12), "label": "4.6s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chrY:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214569846, "ending_time": 1633214572896, "color":c1(43)}, {"starting_time": 1633214572896, "ending_time": 1633214577449, "color":c0(43), "label": "7.5s \/ 1.3 GB \/ CACHED"}]},
+{"label": "chr12:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633214572087, "ending_time": 1633214578048, "color":c1(27)}]},
+{"label": "chr19:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633214573860, "ending_time": 1633214578180, "color":c1(33)}]},
+{"label": "chr2:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214570928, "ending_time": 1633214573035, "color":c1(26)}, {"starting_time": 1633214573035, "ending_time": 1633214578966, "color":c0(26), "label": "6.8s \/ 1.6 GB \/ CACHED"}]},
+{"label": "chr15:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214568792, "ending_time": 1633214572807, "color":c1(44)}, {"starting_time": 1633214572807, "ending_time": 1633214577138, "color":c0(44), "label": "8.2s \/ 1.5 GB \/ CACHED"}]},
+{"label": "chr10:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214571146, "ending_time": 1633214573064, "color":c1(34)}, {"starting_time": 1633214573064, "ending_time": 1633214576786, "color":c0(34), "label": "6.7s \/ 973.8 MB \/ CACHED"}, {"starting_time": 1633214576786, "ending_time": 1633214577875, "color":c1(34)}]},
+{"label": "chr15:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214568851, "ending_time": 1633214572813, "color":c1(44)}, {"starting_time": 1633214572813, "ending_time": 1633214576920, "color":c0(44), "label": "8.1s \/ 1.5 GB \/ CACHED"}, {"starting_time": 1633214576920, "ending_time": 1633214576987, "color":c1(44)}]},
+{"label": "chr1:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214571009, "ending_time": 1633214573045, "color":c1(36)}, {"starting_time": 1633214573045, "ending_time": 1633214578576, "color":c0(36), "label": "6.8s \/ 1.6 GB \/ CACHED"}]},
+{"label": "chr21:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214571566, "ending_time": 1633214578020, "color":c1(30)}, {"starting_time": 1633214578020, "ending_time": 1633214583945, "color":c0(30), "label": "10.4s \/ 1.5 GB \/ CACHED"}]},
+{"label": "chr17:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214569597, "ending_time": 1633214572870, "color":c1(45)}, {"starting_time": 1633214572870, "ending_time": 1633214579219, "color":c0(45), "label": "7.7s \/ 1.4 GB \/ CACHED"}]},
+{"label": "chr14:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214568763, "ending_time": 1633214572802, "color":c1(35)}, {"starting_time": 1633214572802, "ending_time": 1633214577250, "color":c0(35), "label": "8.1s \/ 1.4 GB \/ CACHED"}]},
+{"label": "chr13:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214571732, "ending_time": 1633214578031, "color":c1(32)}, {"starting_time": 1633214578031, "ending_time": 1633214582740, "color":c0(32), "label": "10.3s \/ 1.3 GB \/ CACHED"}]},
+{"label": "chr7:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214570641, "ending_time": 1633214573017, "color":c1(28)}, {"starting_time": 1633214573017, "ending_time": 1633214577646, "color":c0(28), "label": "7.1s \/ 1.4 GB \/ CACHED"}, {"starting_time": 1633214577646, "ending_time": 1633214577697, "color":c1(28)}]},
+{"label": "chrY:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214569335, "ending_time": 1633214572853, "color":c1(43)}, {"starting_time": 1633214572853, "ending_time": 1633214578526, "color":c0(43), "label": "7.8s \/ 1.5 GB \/ CACHED"}]},
+{"label": "chr16:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214570077, "ending_time": 1633214572955, "color":c1(46)}, {"starting_time": 1633214572955, "ending_time": 1633214578151, "color":c0(46), "label": "7.4s \/ 1.3 GB \/ CACHED"}]},
+{"label": "chr20:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214570351, "ending_time": 1633214572982, "color":c1(47)}, {"starting_time": 1633214572982, "ending_time": 1633214578248, "color":c0(47), "label": "7.2s \/ 1.3 GB \/ CACHED"}]},
+{"label": "chr20:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214570253, "ending_time": 1633214572976, "color":c1(47)}, {"starting_time": 1633214572976, "ending_time": 1633214577374, "color":c0(47), "label": "7.3s \/ 1.5 GB \/ CACHED"}, {"starting_time": 1633214577374, "ending_time": 1633214577552, "color":c1(47)}]},
+{"label": "chr11:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214569749, "ending_time": 1633214572880, "color":c1(48)}, {"starting_time": 1633214572880, "ending_time": 1633214578720, "color":c0(48), "label": "7.5s \/ 1.5 GB \/ CACHED"}]},
+{"label": "chr4:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214570554, "ending_time": 1633214573011, "color":c1(31)}, {"starting_time": 1633214573011, "ending_time": 1633214577070, "color":c0(31), "label": "7.1s \/ 1.5 GB \/ CACHED"}, {"starting_time": 1633214577070, "ending_time": 1633214577674, "color":c1(31)}]},
+{"label": "chr8:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214571635, "ending_time": 1633214578025, "color":c1(49)}, {"starting_time": 1633214578025, "ending_time": 1633214582830, "color":c0(49), "label": "10.3s \/ 1.3 GB \/ CACHED"}]},
+{"label": "chr12:splitByChrom:splitByChromosomeCOscore (1)", "times": [{"starting_time": 1633214570396, "ending_time": 1633214572987, "color":c1(27)}, {"starting_time": 1633214572987, "ending_time": 1633214578433, "color":c0(27), "label": "7.2s \/ 1.5 GB \/ CACHED"}]},
+{"label": "chr16:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214570036, "ending_time": 1633214572949, "color":c1(46)}, {"starting_time": 1633214572949, "ending_time": 1633214579045, "color":c0(46), "label": "7.4s \/ 1.5 GB \/ CACHED"}]},
+{"label": "chrY:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214566704, "ending_time": 1633214567859, "color":c1(24)}, {"starting_time": 1633214567859, "ending_time": 1633214568232, "color":c0(24), "label": "1.2s \/ 1.5 MB \/ CACHED"}]},
+{"label": "chr15:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214567623, "ending_time": 1633214572305, "color":c1(17)}, {"starting_time": 1633214572305, "ending_time": 1633214572781, "color":c0(17), "label": "4.7s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr17:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214569665, "ending_time": 1633214572875, "color":c1(45)}, {"starting_time": 1633214572875, "ending_time": 1633214576958, "color":c0(45), "label": "7.6s \/ 1.5 GB \/ CACHED"}, {"starting_time": 1633214576958, "ending_time": 1633214577283, "color":c1(45)}]},
+{"label": "chr8:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214571692, "ending_time": 1633214578027, "color":c1(49)}, {"starting_time": 1633214578027, "ending_time": 1633214582666, "color":c0(49), "label": "10.3s \/ 1.4 GB \/ CACHED"}]},
+{"label": "chr5:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214569435, "ending_time": 1633214572864, "color":c1(29)}, {"starting_time": 1633214572864, "ending_time": 1633214577851, "color":c0(29), "label": "7.8s \/ 1.3 GB \/ CACHED"}]},
+{"label": "chr16:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214568391, "ending_time": 1633214572571, "color":c1(19)}, {"starting_time": 1633214572571, "ending_time": 1633214573011, "color":c0(19), "label": "4.2s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr5:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214566317, "ending_time": 1633214567650, "color":c1(8)}, {"starting_time": 1633214567650, "ending_time": 1633214568151, "color":c0(8), "label": "1.3s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr21:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214566778, "ending_time": 1633214567910, "color":c1(23)}, {"starting_time": 1633214567910, "ending_time": 1633214568310, "color":c0(23), "label": "1.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr17:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214566366, "ending_time": 1633214567693, "color":c1(20)}, {"starting_time": 1633214567693, "ending_time": 1633214568018, "color":c0(20), "label": "1.3s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr20:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214567392, "ending_time": 1633214572261, "color":c1(10)}, {"starting_time": 1633214572261, "ending_time": 1633214572674, "color":c0(10), "label": "4.9s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr4:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214567887, "ending_time": 1633214572354, "color":c1(25)}, {"starting_time": 1633214572354, "ending_time": 1633214572772, "color":c0(25), "label": "4.5s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr19:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214569136, "ending_time": 1633214572830, "color":c1(33)}, {"starting_time": 1633214572830, "ending_time": 1633214577495, "color":c0(33), "label": "7.9s \/ 1.5 GB \/ CACHED"}]},
+{"label": "chr18:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214562494, "ending_time": 1633214567340, "color":c1(16)}, {"starting_time": 1633214567340, "ending_time": 1633214567733, "color":c0(16), "label": "4.9s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr14:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214568662, "ending_time": 1633214572732, "color":c1(21)}, {"starting_time": 1633214572732, "ending_time": 1633214573271, "color":c0(21), "label": "4.1s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr8:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214566582, "ending_time": 1633214567795, "color":c1(18)}, {"starting_time": 1633214567795, "ending_time": 1633214568238, "color":c0(18), "label": "1.2s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr13:splitByChrom:splitByChromosomeBed (3)", "times": [{"starting_time": 1633214562711, "ending_time": 1633214567405, "color":c1(3)}, {"starting_time": 1633214567405, "ending_time": 1633214567914, "color":c0(3), "label": "4.7s \/ 1.5 MB \/ CACHED"}]},
+{"label": "chr8:splitByChrom:splitByChromosomeBed (4)", "times": [{"starting_time": 1633214568229, "ending_time": 1633214572547, "color":c1(18)}, {"starting_time": 1633214572547, "ending_time": 1633214573003, "color":c0(18), "label": "4.3s \/ 1.6 MB \/ CACHED"}]},
+{"label": "chr11:splitByChrom:splitByChromosomeCOscore (2)", "times": [{"starting_time": 1633214569794, "ending_time": 1633214572886, "color":c1(48)}, {"starting_time": 1633214572886, "ending_time": 1633214577471, "color":c0(48), "label": "7.5s \/ 1.5 GB \/ CACHED"}]},
+{"label": "chr7:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633214573555, "ending_time": 1633214578146, "color":c1(28)}, {"starting_time": 1633214578146, "ending_time": 1633214584903, "color":c0(28), "label": "8.9s \/ 2.6 GB \/ CACHED"}]},
+{"label": "chr8:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633214574780, "ending_time": 1633214578277, "color":c1(49)}]},
+{"label": "chr8:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633214574809, "ending_time": 1633214578283, "color":c1(49)}]},
+{"label": "chr2:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633214574193, "ending_time": 1633214578230, "color":c1(26)}, {"starting_time": 1633214578230, "ending_time": 1633214585013, "color":c0(26), "label": "8.5s \/ 2.7 GB \/ CACHED"}]},
+{"label": "chr5:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633214574271, "ending_time": 1633214578239, "color":c1(29)}]},
+{"label": "chr18:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633214573897, "ending_time": 1633214578184, "color":c1(42)}, {"starting_time": 1633214578184, "ending_time": 1633214584866, "color":c0(42), "label": "8.7s \/ 2.5 GB \/ CACHED"}]},
+{"label": "chr9:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633214574874, "ending_time": 1633214578291, "color":c1(37)}]},
+{"label": "chr11:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633214574040, "ending_time": 1633214578202, "color":c1(48)}]},
+{"label": "chr7:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633214573495, "ending_time": 1633214578142, "color":c1(28)}]},
+{"label": "chr22:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633214575052, "ending_time": 1633214578310, "color":c1(39)}]},
+{"label": "chr17:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633214574630, "ending_time": 1633214578254, "color":c1(45)}, {"starting_time": 1633214578254, "ending_time": 1633214585240, "color":c0(45), "label": "8.1s \/ 2.6 GB \/ CACHED"}]},
+{"label": "chr9:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633214574905, "ending_time": 1633214578301, "color":c1(37)}]},
+{"label": "chr18:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633214574001, "ending_time": 1633214578198, "color":c1(42)}, {"starting_time": 1633214578198, "ending_time": 1633214585061, "color":c0(42), "label": "8.7s \/ 2.5 GB \/ CACHED"}]},
+{"label": "chr19:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633214573802, "ending_time": 1633214578176, "color":c1(33)}, {"starting_time": 1633214578176, "ending_time": 1633214584973, "color":c0(33), "label": "8.7s \/ 2.6 GB \/ CACHED"}]},
+{"label": "chr11:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633214574162, "ending_time": 1633214578224, "color":c1(48)}]},
+{"label": "chr13:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633214573639, "ending_time": 1633214578155, "color":c1(32)}, {"starting_time": 1633214578155, "ending_time": 1633214584644, "color":c0(32), "label": "8.8s \/ 2.5 GB \/ CACHED"}]},
+{"label": "chr13:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633214573596, "ending_time": 1633214578151, "color":c1(32)}, {"starting_time": 1633214578151, "ending_time": 1633214583483, "color":c0(32), "label": "8.9s \/ 2.5 GB \/ CACHED"}]},
+{"label": "chr6:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302209705, "ending_time": 1633302210850, "color":c1(50)}, {"starting_time": 1633302210850, "ending_time": 1633302220378, "color":c2(50), "label": "11.1s \/ 3.4 MB"}, {"starting_time": 1633302220378, "ending_time": 1633302220781, "color":c1(50)}]},
+{"label": "chr12:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302209793, "ending_time": 1633302210873, "color":c1(51)}, {"starting_time": 1633302210873, "ending_time": 1633302219482, "color":c2(51), "label": "11.1s \/ 3.3 MB"}, {"starting_time": 1633302219482, "ending_time": 1633302220843, "color":c1(51)}]},
+{"label": "chrX:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302209891, "ending_time": 1633302210931, "color":c1(52)}, {"starting_time": 1633302210931, "ending_time": 1633302219963, "color":c2(52), "label": "11s \/ 3.3 MB"}, {"starting_time": 1633302219963, "ending_time": 1633302220876, "color":c1(52)}]},
+{"label": "chr9:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302209982, "ending_time": 1633302210958, "color":c1(53)}, {"starting_time": 1633302210958, "ending_time": 1633302217666, "color":c2(53), "label": "11s \/ 3.4 MB"}, {"starting_time": 1633302217666, "ending_time": 1633302220971, "color":c1(53)}]},
+{"label": "chr7:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302210089, "ending_time": 1633302210984, "color":c1(54)}, {"starting_time": 1633302210984, "ending_time": 1633302219129, "color":c2(54), "label": "10.9s \/ 3.4 MB"}, {"starting_time": 1633302219129, "ending_time": 1633302220983, "color":c1(54)}]},
+{"label": "chr18:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302210162, "ending_time": 1633302211010, "color":c1(55)}, {"starting_time": 1633302211010, "ending_time": 1633302218943, "color":c2(55), "label": "10.9s \/ 3.3 MB"}, {"starting_time": 1633302218943, "ending_time": 1633302221080, "color":c1(55)}]},
+{"label": "chr3:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302210247, "ending_time": 1633302211118, "color":c1(56)}, {"starting_time": 1633302211118, "ending_time": 1633302220001, "color":c2(56), "label": "11s \/ 3.4 MB"}, {"starting_time": 1633302220001, "ending_time": 1633302221216, "color":c1(56)}]},
+{"label": "chr22:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302210337, "ending_time": 1633302211159, "color":c1(57)}, {"starting_time": 1633302211159, "ending_time": 1633302219788, "color":c2(57), "label": "10.9s \/ 3.3 MB"}, {"starting_time": 1633302219788, "ending_time": 1633302221232, "color":c1(57)}]},
+{"label": "chr5:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302210421, "ending_time": 1633302211181, "color":c1(58)}, {"starting_time": 1633302211181, "ending_time": 1633302219927, "color":c2(58), "label": "11.1s \/ 3.4 MB"}, {"starting_time": 1633302219927, "ending_time": 1633302221495, "color":c1(58)}]},
+{"label": "chr14:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302210511, "ending_time": 1633302211196, "color":c1(59)}, {"starting_time": 1633302211196, "ending_time": 1633302220668, "color":c2(59), "label": "11s \/ 3.3 MB"}, {"starting_time": 1633302220668, "ending_time": 1633302221523, "color":c1(59)}]},
+{"label": "chrY:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302210595, "ending_time": 1633302211227, "color":c1(60)}, {"starting_time": 1633302211227, "ending_time": 1633302216284, "color":c2(60), "label": "11.1s \/ 3.2 MB"}, {"starting_time": 1633302216284, "ending_time": 1633302221709, "color":c1(60)}]},
+{"label": "chr4:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302210679, "ending_time": 1633302211261, "color":c1(61)}, {"starting_time": 1633302211261, "ending_time": 1633302219482, "color":c2(61), "label": "11s \/ 3.4 MB"}, {"starting_time": 1633302219482, "ending_time": 1633302221727, "color":c1(61)}]},
+{"label": "chr2:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302210776, "ending_time": 1633302215745, "color":c1(62)}, {"starting_time": 1633302215745, "ending_time": 1633302225304, "color":c2(62), "label": "11s \/ 3.4 MB"}]},
+{"label": "chr19:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302210903, "ending_time": 1633302215757, "color":c1(63)}, {"starting_time": 1633302215757, "ending_time": 1633302226354, "color":c2(63), "label": "11.3s \/ 3.3 MB"}]},
+{"label": "chr15:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302211025, "ending_time": 1633302215769, "color":c1(64)}, {"starting_time": 1633302215769, "ending_time": 1633302225209, "color":c2(64), "label": "11.7s \/ 3.3 MB"}]},
+{"label": "chr20:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302211134, "ending_time": 1633302215775, "color":c1(65)}, {"starting_time": 1633302215775, "ending_time": 1633302224634, "color":c2(65), "label": "11.6s \/ 3.3 MB"}]},
+{"label": "chr1:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302211246, "ending_time": 1633302215782, "color":c1(66)}, {"starting_time": 1633302215782, "ending_time": 1633302224107, "color":c2(66), "label": "11.6s \/ 3.4 MB"}]},
+{"label": "chr16:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302211324, "ending_time": 1633302215791, "color":c1(67)}, {"starting_time": 1633302215791, "ending_time": 1633302224879, "color":c2(67), "label": "11.5s \/ 3.3 MB"}]},
+{"label": "chr10:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302211387, "ending_time": 1633302215797, "color":c1(68)}, {"starting_time": 1633302215797, "ending_time": 1633302225111, "color":c2(68), "label": "11.5s \/ 3.3 MB"}]},
+{"label": "chr8:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302211453, "ending_time": 1633302215803, "color":c1(69)}, {"starting_time": 1633302215803, "ending_time": 1633302225642, "color":c2(69), "label": "11.7s \/ 3.4 MB"}]},
+{"label": "chr21:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302211568, "ending_time": 1633302215808, "color":c1(70)}, {"starting_time": 1633302215808, "ending_time": 1633302225476, "color":c2(70), "label": "12.2s \/ 3.3 MB"}]},
+{"label": "chr17:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302211643, "ending_time": 1633302215810, "color":c1(71)}, {"starting_time": 1633302215810, "ending_time": 1633302225768, "color":c2(71), "label": "12.3s \/ 3.3 MB"}]},
+{"label": "chr11:splitByChrom:splitByChromosomeHiC (1)", "times": [{"starting_time": 1633302211703, "ending_time": 1633302215819, "color":c1(72)}, {"starting_time": 1633302215819, "ending_time": 1633302225435, "color":c2(72), "label": "12.3s \/ 3.3 MB"}]},
+{"label": "chr4:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302211770, "ending_time": 1633302215824, "color":c1(73)}, {"starting_time": 1633302215824, "ending_time": 1633302241118, "color":c2(73), "label": "29.3s \/ -"}]},
+{"label": "chr2:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302211838, "ending_time": 1633302215830, "color":c1(74)}]},
+{"label": "chr1:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302211898, "ending_time": 1633302215838, "color":c1(75)}, {"starting_time": 1633302215838, "ending_time": 1633302232953, "color":c2(75), "label": "19.2s \/ 5.2 GB"}]},
+{"label": "chr4:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633302211947, "ending_time": 1633302215844, "color":c1(31)}, {"starting_time": 1633302215844, "ending_time": 1633302224692, "color":c2(31), "label": "12.2s \/ 2.5 GB"}]},
+{"label": "chr14:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302212010, "ending_time": 1633302215849, "color":c1(76)}]},
+{"label": "chr14:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302212054, "ending_time": 1633302215857, "color":c1(76)}, {"starting_time": 1633302215857, "ending_time": 1633302232636, "color":c2(76), "label": "19.1s \/ 5 GB"}]},
+{"label": "chr11:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302212091, "ending_time": 1633302215862, "color":c1(77)}, {"starting_time": 1633302215862, "ending_time": 1633302234102, "color":c2(77), "label": "19.1s \/ 4.7 GB"}]},
+{"label": "chr3:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302212153, "ending_time": 1633302215867, "color":c1(78)}]},
+{"label": "chr3:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302212223, "ending_time": 1633302215872, "color":c1(78)}, {"starting_time": 1633302215872, "ending_time": 1633302232816, "color":c2(78), "label": "19s \/ 5.1 GB"}]},
+{"label": "chr9:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302212259, "ending_time": 1633302215878, "color":c1(79)}, {"starting_time": 1633302215878, "ending_time": 1633302231863, "color":c2(79), "label": "19s \/ 5.3 GB"}]},
+{"label": "chr22:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302212293, "ending_time": 1633302215884, "color":c1(80)}]},
+{"label": "chr11:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302212367, "ending_time": 1633302215890, "color":c1(77)}, {"starting_time": 1633302215890, "ending_time": 1633302244218, "color":c2(77), "label": "29.4s \/ 9.3 GB"}]},
+{"label": "chr6:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302212404, "ending_time": 1633302215895, "color":c1(81)}, {"starting_time": 1633302215895, "ending_time": 1633302231302, "color":c2(81), "label": "18.9s \/ 5.3 GB"}]},
+{"label": "chr6:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302212467, "ending_time": 1633302215900, "color":c1(81)}]},
+{"label": "chr21:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302212574, "ending_time": 1633302215905, "color":c1(82)}, {"starting_time": 1633302215905, "ending_time": 1633302243570, "color":c2(82), "label": "29.2s \/ 9 GB"}]},
+{"label": "chr5:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302212630, "ending_time": 1633302215911, "color":c1(83)}, {"starting_time": 1633302215911, "ending_time": 1633302234300, "color":c2(83), "label": "23.5s \/ 4.7 GB"}, {"starting_time": 1633302234300, "ending_time": 1633302236121, "color":c1(83)}]},
+{"label": "chr2:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302212691, "ending_time": 1633302215918, "color":c1(74)}, {"starting_time": 1633302215918, "ending_time": 1633302235035, "color":c2(74), "label": "23.4s \/ 6.2 GB"}, {"starting_time": 1633302235035, "ending_time": 1633302236140, "color":c1(74)}]},
+{"label": "chrX:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633302212745, "ending_time": 1633302215923, "color":c1(38)}, {"starting_time": 1633302215923, "ending_time": 1633302223950, "color":c2(38), "label": "11.5s \/ 2.6 GB"}, {"starting_time": 1633302223950, "ending_time": 1633302224229, "color":c1(38)}]},
+{"label": "chr5:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302212807, "ending_time": 1633302215928, "color":c1(83)}]},
+{"label": "chrX:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633302212852, "ending_time": 1633302215936, "color":c1(38)}, {"starting_time": 1633302215936, "ending_time": 1633302226313, "color":c2(38), "label": "11.8s \/ 2.6 GB"}]},
+{"label": "chr20:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633302212897, "ending_time": 1633302215942, "color":c1(47)}, {"starting_time": 1633302215942, "ending_time": 1633302224162, "color":c2(47), "label": "11.9s \/ 2.5 GB"}, {"starting_time": 1633302224162, "ending_time": 1633302224770, "color":c1(47)}]},
+{"label": "chr18:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302212937, "ending_time": 1633302215947, "color":c1(84)}, {"starting_time": 1633302215947, "ending_time": 1633302242052, "color":c2(84), "label": "28.9s \/ 9.3 GB"}]},
+{"label": "chr14:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633302212975, "ending_time": 1633302215952, "color":c1(35)}, {"starting_time": 1633302215952, "ending_time": 1633302224574, "color":c2(35), "label": "11.8s \/ 2.6 GB"}, {"starting_time": 1633302224574, "ending_time": 1633302224790, "color":c1(35)}]},
+{"label": "chr13:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302213066, "ending_time": 1633302215960, "color":c1(85)}]},
+{"label": "chr4:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633302213126, "ending_time": 1633302215965, "color":c1(31)}, {"starting_time": 1633302215965, "ending_time": 1633302226109, "color":c2(31), "label": "11.7s \/ 2.6 GB"}]},
+{"label": "chrY:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633302213184, "ending_time": 1633302215971, "color":c1(43)}, {"starting_time": 1633302215971, "ending_time": 1633302225701, "color":c2(43), "label": "11.7s \/ 2.5 GB"}]},
+{"label": "chr7:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302213244, "ending_time": 1633302215978, "color":c1(86)}, {"starting_time": 1633302215978, "ending_time": 1633302232982, "color":c2(86), "label": "18.1s \/ 5 GB"}]},
+{"label": "chr15:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633302213300, "ending_time": 1633302215984, "color":c1(44)}, {"starting_time": 1633302215984, "ending_time": 1633302226428, "color":c2(44), "label": "11.7s \/ 2.4 GB"}]},
+{"label": "chr4:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302213361, "ending_time": 1633302215989, "color":c1(73)}, {"starting_time": 1633302215989, "ending_time": 1633302234268, "color":c2(73), "label": "22.8s \/ 4.4 GB"}, {"starting_time": 1633302234268, "ending_time": 1633302236152, "color":c1(73)}]},
+{"label": "chr16:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633302213414, "ending_time": 1633302215995, "color":c1(46)}, {"starting_time": 1633302215995, "ending_time": 1633302223220, "color":c2(46), "label": "11.6s \/ 2.6 GB"}, {"starting_time": 1633302223220, "ending_time": 1633302224998, "color":c1(46)}]},
+{"label": "chr20:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633302213473, "ending_time": 1633302216004, "color":c1(47)}, {"starting_time": 1633302216004, "ending_time": 1633302224597, "color":c2(47), "label": "11.6s \/ 2.5 GB"}, {"starting_time": 1633302224597, "ending_time": 1633302225028, "color":c1(47)}]},
+{"label": "chr10:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633302213527, "ending_time": 1633302216009, "color":c1(34)}, {"starting_time": 1633302216009, "ending_time": 1633302222799, "color":c2(34), "label": "11.5s \/ 2.6 GB"}, {"starting_time": 1633302222799, "ending_time": 1633302225038, "color":c1(34)}]},
+{"label": "chr15:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633302213582, "ending_time": 1633302216015, "color":c1(44)}, {"starting_time": 1633302216015, "ending_time": 1633302225252, "color":c2(44), "label": "11.5s \/ 2.6 GB"}]},
+{"label": "chr10:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302213635, "ending_time": 1633302216020, "color":c1(87)}, {"starting_time": 1633302216020, "ending_time": 1633302231936, "color":c2(87), "label": "17.7s \/ 5.2 GB"}]},
+{"label": "chr21:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302213693, "ending_time": 1633302216027, "color":c1(82)}, {"starting_time": 1633302216027, "ending_time": 1633302226812, "color":c2(82), "label": "11.4s \/ 5.8 GB"}]},
+{"label": "chr17:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633302213753, "ending_time": 1633302216053, "color":c1(45)}, {"starting_time": 1633302216053, "ending_time": 1633302224003, "color":c2(45), "label": "11.5s \/ 2.3 GB"}, {"starting_time": 1633302224003, "ending_time": 1633302225297, "color":c1(45)}]},
+{"label": "chr21:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633302213814, "ending_time": 1633302216059, "color":c1(30)}, {"starting_time": 1633302216059, "ending_time": 1633302221656, "color":c2(30), "label": "11.5s \/ 2.4 GB"}, {"starting_time": 1633302221656, "ending_time": 1633302225331, "color":c1(30)}]},
+{"label": "chr3:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633302213874, "ending_time": 1633302216066, "color":c1(40)}, {"starting_time": 1633302216066, "ending_time": 1633302225433, "color":c2(40), "label": "11.5s \/ 2.6 GB"}]},
+{"label": "chr17:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302213931, "ending_time": 1633302216076, "color":c1(88)}]},
+{"label": "chrX:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302213994, "ending_time": 1633302216081, "color":c1(89)}, {"starting_time": 1633302216081, "ending_time": 1633302232727, "color":c2(89), "label": "17.3s \/ 4.9 GB"}]},
+{"label": "chrX:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302214040, "ending_time": 1633302216087, "color":c1(89)}]},
+{"label": "chr19:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302214078, "ending_time": 1633302216093, "color":c1(90)}]},
+{"label": "chr1:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302214151, "ending_time": 1633302216098, "color":c1(75)}]},
+{"label": "chr22:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302214210, "ending_time": 1633302216106, "color":c1(80)}, {"starting_time": 1633302216106, "ending_time": 1633302228384, "color":c2(80), "label": "17.2s \/ 5.8 GB"}, {"starting_time": 1633302228384, "ending_time": 1633302231368, "color":c1(80)}]},
+{"label": "chr9:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302214274, "ending_time": 1633302216107, "color":c1(79)}]},
+{"label": "chr6:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633302214327, "ending_time": 1633302216112, "color":c1(41)}, {"starting_time": 1633302216112, "ending_time": 1633302222775, "color":c2(41), "label": "11.1s \/ 2.6 GB"}, {"starting_time": 1633302222775, "ending_time": 1633302225392, "color":c1(41)}]},
+{"label": "chr6:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633302214400, "ending_time": 1633302216118, "color":c1(41)}, {"starting_time": 1633302216118, "ending_time": 1633302223250, "color":c2(41), "label": "11.1s \/ 2.6 GB"}, {"starting_time": 1633302223250, "ending_time": 1633302225466, "color":c1(41)}]},
+{"label": "chr12:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302214461, "ending_time": 1633302216122, "color":c1(91)}, {"starting_time": 1633302216122, "ending_time": 1633302239159, "color":c2(91), "label": "27.4s \/ 9 GB"}, {"starting_time": 1633302239159, "ending_time": 1633302241821, "color":c1(91)}]},
+{"label": "chr1:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633302214521, "ending_time": 1633302216128, "color":c1(36)}, {"starting_time": 1633302216128, "ending_time": 1633302223398, "color":c2(36), "label": "11s \/ 2.7 GB"}, {"starting_time": 1633302223398, "ending_time": 1633302225507, "color":c1(36)}]},
+{"label": "chrY:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302214579, "ending_time": 1633302216135, "color":c1(92)}, {"starting_time": 1633302216135, "ending_time": 1633302228212, "color":c2(92), "label": "17.1s \/ 5.7 GB"}, {"starting_time": 1633302228212, "ending_time": 1633302231630, "color":c1(92)}]},
+{"label": "chrY:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302214646, "ending_time": 1633302216141, "color":c1(92)}]},
+{"label": "chr18:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302214710, "ending_time": 1633302216147, "color":c1(84)}, {"starting_time": 1633302216147, "ending_time": 1633302233181, "color":c2(84), "label": "21.5s \/ 4.7 GB"}, {"starting_time": 1633302233181, "ending_time": 1633302236191, "color":c1(84)}]},
+{"label": "chr16:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633302214741, "ending_time": 1633302216153, "color":c1(46)}, {"starting_time": 1633302216153, "ending_time": 1633302223528, "color":c2(46), "label": "10.8s \/ 2.4 GB"}, {"starting_time": 1633302223528, "ending_time": 1633302225539, "color":c1(46)}]},
+{"label": "chr13:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302214774, "ending_time": 1633302216159, "color":c1(85)}, {"starting_time": 1633302216159, "ending_time": 1633302231254, "color":c2(85), "label": "16.9s \/ 5.4 GB"}, {"starting_time": 1633302231254, "ending_time": 1633302231648, "color":c1(85)}]},
+{"label": "chr1:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633302214812, "ending_time": 1633302216165, "color":c1(36)}, {"starting_time": 1633302216165, "ending_time": 1633302224005, "color":c2(36), "label": "10.8s \/ 2.5 GB"}, {"starting_time": 1633302224005, "ending_time": 1633302225588, "color":c1(36)}]},
+{"label": "chr5:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633302214851, "ending_time": 1633302216171, "color":c1(29)}, {"starting_time": 1633302216171, "ending_time": 1633302224585, "color":c2(29), "label": "10.8s \/ 2.6 GB"}, {"starting_time": 1633302224585, "ending_time": 1633302225619, "color":c1(29)}]},
+{"label": "chr12:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633302214884, "ending_time": 1633302216177, "color":c1(27)}, {"starting_time": 1633302216177, "ending_time": 1633302226428, "color":c2(27), "label": "11.2s \/ 2.6 GB"}]},
+{"label": "chr8:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302214916, "ending_time": 1633302216183, "color":c1(93)}]},
+{"label": "chr16:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302214954, "ending_time": 1633302216190, "color":c1(94)}, {"starting_time": 1633302216190, "ending_time": 1633302232082, "color":c2(94), "label": "21.3s \/ 5 GB"}, {"starting_time": 1633302232082, "ending_time": 1633302236221, "color":c1(94)}]},
+{"label": "chr20:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302214987, "ending_time": 1633302216196, "color":c1(95)}]},
+{"label": "chr20:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302215026, "ending_time": 1633302216202, "color":c1(95)}, {"starting_time": 1633302216202, "ending_time": 1633302231646, "color":c2(95), "label": "16.7s \/ 5.2 GB"}, {"starting_time": 1633302231646, "ending_time": 1633302231696, "color":c1(95)}]},
+{"label": "chr7:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302215073, "ending_time": 1633302216208, "color":c1(86)}]},
+{"label": "chr8:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302215130, "ending_time": 1633302216214, "color":c1(93)}, {"starting_time": 1633302216214, "ending_time": 1633302232047, "color":c2(93), "label": "16.6s \/ 5.1 GB"}]},
+{"label": "chr10:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302215160, "ending_time": 1633302216221, "color":c1(87)}]},
+{"label": "chr14:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633302215191, "ending_time": 1633302216228, "color":c1(35)}, {"starting_time": 1633302216228, "ending_time": 1633302225624, "color":c2(35), "label": "10.5s \/ 2.4 GB"}, {"starting_time": 1633302225624, "ending_time": 1633302225674, "color":c1(35)}]},
+{"label": "chr10:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633302215224, "ending_time": 1633302216235, "color":c1(34)}, {"starting_time": 1633302216235, "ending_time": 1633302226185, "color":c2(34), "label": "10.9s \/ 2.6 GB"}]},
+{"label": "chr22:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633302215263, "ending_time": 1633302216241, "color":c1(39)}, {"starting_time": 1633302216241, "ending_time": 1633302225019, "color":c2(39), "label": "10.5s \/ 2.5 GB"}, {"starting_time": 1633302225019, "ending_time": 1633302225806, "color":c1(39)}]},
+{"label": "chr21:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633302215377, "ending_time": 1633302216247, "color":c1(30)}, {"starting_time": 1633302216247, "ending_time": 1633302224451, "color":c2(30), "label": "10.6s \/ 2.5 GB"}, {"starting_time": 1633302224451, "ending_time": 1633302226018, "color":c1(30)}]},
+{"label": "chrY:splitByChrom:splitByChromosomeCOscore (3)", "times": [{"starting_time": 1633302215466, "ending_time": 1633302226062, "color":c1(43)}, {"starting_time": 1633302226062, "ending_time": 1633302234563, "color":c2(43), "label": "10.6s \/ 2.5 GB"}]},
+{"label": "chr19:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302215512, "ending_time": 1633302226085, "color":c1(90)}, {"starting_time": 1633302226085, "ending_time": 1633302245588, "color":c2(90), "label": "20.7s \/ 5.9 GB"}]},
+{"label": "chr3:splitByChrom:splitByChromosomeCOscore (4)", "times": [{"starting_time": 1633302215549, "ending_time": 1633302216258, "color":c1(40)}, {"starting_time": 1633302216258, "ending_time": 1633302224982, "color":c2(40), "label": "10.5s \/ 2.6 GB"}, {"starting_time": 1633302224982, "ending_time": 1633302226092, "color":c1(40)}]},
+{"label": "chr17:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302215585, "ending_time": 1633302216263, "color":c1(88)}, {"starting_time": 1633302216263, "ending_time": 1633302232375, "color":c2(88), "label": "20.7s \/ 5.2 GB"}, {"starting_time": 1633302232375, "ending_time": 1633302236305, "color":c1(88)}]},
+{"label": "chr16:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302215623, "ending_time": 1633302216269, "color":c1(94)}]},
+{"label": "chr12:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302215659, "ending_time": 1633302216278, "color":c1(91)}, {"starting_time": 1633302216278, "ending_time": 1633302233673, "color":c2(91), "label": "20.7s \/ 4.9 GB"}, {"starting_time": 1633302233673, "ending_time": 1633302236320, "color":c1(91)}]},
+{"label": "chr15:splitByChrom:splitByChromosomeDNAseq (2)", "times": [{"starting_time": 1633302215690, "ending_time": 1633302216285, "color":c1(96)}]},
+{"label": "chr15:splitByChrom:splitByChromosomeDNAseq (1)", "times": [{"starting_time": 1633302220865, "ending_time": 1633302226153, "color":c1(96)}, {"starting_time": 1633302226153, "ending_time": 1633302238031, "color":c2(96), "label": "15.5s \/ 5.9 GB"}]},
+{"label": "chrX:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302222666, "ending_time": 1633302226168, "color":c1(97)}, {"starting_time": 1633302226168, "ending_time": 1633302230659, "color":c2(97), "label": "9.1s \/ 198.8 MB"}, {"starting_time": 1633302230659, "ending_time": 1633302231765, "color":c1(97)}]},
+{"label": "chrY:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302223107, "ending_time": 1633302226185, "color":c1(98)}, {"starting_time": 1633302226185, "ending_time": 1633302229545, "color":c2(98), "label": "8.7s \/ 157.5 MB"}, {"starting_time": 1633302229545, "ending_time": 1633302231847, "color":c1(98)}]},
+{"label": "chr18:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302223703, "ending_time": 1633302226220, "color":c1(99)}, {"starting_time": 1633302226220, "ending_time": 1633302230363, "color":c2(99), "label": "8.2s \/ 199.4 MB"}, {"starting_time": 1633302230363, "ending_time": 1633302231919, "color":c1(99)}]},
+{"label": "chr13:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302224225, "ending_time": 1633302226248, "color":c1(100)}, {"starting_time": 1633302226248, "ending_time": 1633302230949, "color":c2(100), "label": "7.9s \/ 202.9 MB"}, {"starting_time": 1633302230949, "ending_time": 1633302232083, "color":c1(100)}]},
+{"label": "chr22:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302224837, "ending_time": 1633302226288, "color":c1(101)}, {"starting_time": 1633302226288, "ending_time": 1633302229675, "color":c2(101), "label": "7.7s \/ 223.1 MB"}, {"starting_time": 1633302229675, "ending_time": 1633302232573, "color":c1(101)}]},
+{"label": "chr14:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302225770, "ending_time": 1633302226312, "color":c1(102)}, {"starting_time": 1633302226312, "ending_time": 1633302233960, "color":c2(102), "label": "10.6s \/ 234.4 MB"}, {"starting_time": 1633302233960, "ending_time": 1633302236368, "color":c1(102)}]},
+{"label": "chr4:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302226354, "ending_time": 1633302232735, "color":c1(103)}, {"starting_time": 1633302232735, "ending_time": 1633302238002, "color":c2(103), "label": "6.4s \/ 228.3 MB"}]},
+{"label": "chr5:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302226605, "ending_time": 1633302232979, "color":c1(104)}, {"starting_time": 1633302232979, "ending_time": 1633302238062, "color":c2(104), "label": "6.4s \/ 242.2 MB"}]},
+{"label": "chr7:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302226823, "ending_time": 1633302233159, "color":c1(105)}, {"starting_time": 1633302233159, "ending_time": 1633302239380, "color":c2(105), "label": "9.6s \/ 253.1 MB"}]},
+{"label": "chr21:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302227034, "ending_time": 1633302233174, "color":c1(106)}, {"starting_time": 1633302233174, "ending_time": 1633302236224, "color":c2(106), "label": "6.1s \/ 137.6 MB"}]},
+{"label": "chr9:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302227219, "ending_time": 1633302233236, "color":c1(107)}, {"starting_time": 1633302233236, "ending_time": 1633302238541, "color":c2(107), "label": "6s \/ 258.6 MB"}]},
+{"label": "chr15:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302227390, "ending_time": 1633302233415, "color":c1(108)}, {"starting_time": 1633302233415, "ending_time": 1633302239405, "color":c2(108), "label": "9.2s \/ 231.9 MB"}]},
+{"label": "chr20:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302227536, "ending_time": 1633302233422, "color":c1(109)}, {"starting_time": 1633302233422, "ending_time": 1633302237159, "color":c2(109), "label": "5.9s \/ 234.9 MB"}]},
+{"label": "chr6:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302227677, "ending_time": 1633302233581, "color":c1(110)}, {"starting_time": 1633302233581, "ending_time": 1633302242403, "color":c2(110), "label": "14.2s \/ 274.7 MB"}]},
+{"label": "chr12:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302227829, "ending_time": 1633302233587, "color":c1(111)}, {"starting_time": 1633302233587, "ending_time": 1633302238885, "color":c2(111), "label": "8.9s \/ 277.3 MB"}]},
+{"label": "chr3:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302228009, "ending_time": 1633302233588, "color":c1(112)}, {"starting_time": 1633302233588, "ending_time": 1633302241060, "color":c2(112), "label": "8.9s \/ 282.3 MB"}]},
+{"label": "chr16:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302228095, "ending_time": 1633302233596, "color":c1(113)}, {"starting_time": 1633302233596, "ending_time": 1633302240313, "color":c2(113), "label": "8.8s \/ 251.9 MB"}]},
+{"label": "chr8:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302228199, "ending_time": 1633302233603, "color":c1(114)}, {"starting_time": 1633302233603, "ending_time": 1633302240122, "color":c2(114), "label": "8.8s \/ 242 MB"}]},
+{"label": "chr10:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302228299, "ending_time": 1633302233614, "color":c1(115)}, {"starting_time": 1633302233614, "ending_time": 1633302237998, "color":c2(115), "label": "5.3s \/ 257.5 MB"}]},
+{"label": "chr2:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302228355, "ending_time": 1633302233706, "color":c1(116)}, {"starting_time": 1633302233706, "ending_time": 1633302243557, "color":c2(116), "label": "13.5s \/ 292.5 MB"}]},
+{"label": "chr19:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302228411, "ending_time": 1633302233730, "color":c1(117)}, {"starting_time": 1633302233730, "ending_time": 1633302239242, "color":c2(117), "label": "8.7s \/ 297.1 MB"}]},
+{"label": "chr11:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302228478, "ending_time": 1633302233738, "color":c1(118)}, {"starting_time": 1633302233738, "ending_time": 1633302238453, "color":c2(118), "label": "8.8s \/ 289.3 MB"}]},
+{"label": "chr17:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302228516, "ending_time": 1633302233745, "color":c1(119)}, {"starting_time": 1633302233745, "ending_time": 1633302240191, "color":c2(119), "label": "8.9s \/ 320.3 MB"}]},
+{"label": "chr1:splitByChrom:combine_data:SPLIT_HIC_AUG (hic.aug.t2d_preadipocyte.{split}.csv)", "times": [{"starting_time": 1633302228551, "ending_time": 1633302233769, "color":c1(120)}, {"starting_time": 1633302233769, "ending_time": 1633302241012, "color":c2(120), "label": "8.9s \/ 341.4 MB"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302232040, "ending_time": 1633302237538, "color":c1(121)}, {"starting_time": 1633302237538, "ending_time": 1633302241998, "color":c2(121), "label": "10s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302232366, "ending_time": 1633302237544, "color":c1(121)}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302232468, "ending_time": 1633302237550, "color":c1(121)}, {"starting_time": 1633302237550, "ending_time": 1633302242009, "color":c2(121), "label": "9.5s \/ -"}]},
+{"label": "chrY:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302232534, "ending_time": 1633302237557, "color":c1(122)}, {"starting_time": 1633302237557, "ending_time": 1633302243153, "color":c2(122), "label": "9.5s \/ 254.2 MB"}]},
+{"label": "chrY:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302232642, "ending_time": 1633302237563, "color":c1(122)}, {"starting_time": 1633302237563, "ending_time": 1633302245636, "color":c2(122), "label": "9.4s \/ 248.9 MB"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302232845, "ending_time": 1633302237571, "color":c1(121)}, {"starting_time": 1633302237571, "ending_time": 1633302242128, "color":c2(121), "label": "9.3s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302232921, "ending_time": 1633302237578, "color":c1(121)}, {"starting_time": 1633302237578, "ending_time": 1633302242136, "color":c2(121), "label": "9.2s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302233146, "ending_time": 1633302237587, "color":c1(123)}, {"starting_time": 1633302237587, "ending_time": 1633302242145, "color":c2(123), "label": "9s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302233493, "ending_time": 1633302237599, "color":c1(123)}, {"starting_time": 1633302237599, "ending_time": 1633302242153, "color":c2(123), "label": "8.7s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302233671, "ending_time": 1633302237624, "color":c1(123)}, {"starting_time": 1633302237624, "ending_time": 1633302242160, "color":c2(123), "label": "8.5s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302233905, "ending_time": 1633302237655, "color":c1(123)}, {"starting_time": 1633302237655, "ending_time": 1633302242167, "color":c2(123), "label": "8.3s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302233964, "ending_time": 1633302237681, "color":c1(123)}, {"starting_time": 1633302237681, "ending_time": 1633302242176, "color":c2(123), "label": "8.2s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302234007, "ending_time": 1633302237697, "color":c1(123)}, {"starting_time": 1633302237697, "ending_time": 1633302242184, "color":c2(123), "label": "8.2s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302234090, "ending_time": 1633302237713, "color":c1(123)}, {"starting_time": 1633302237713, "ending_time": 1633302242192, "color":c2(123), "label": "8.1s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302234124, "ending_time": 1633302237731, "color":c1(123)}, {"starting_time": 1633302237731, "ending_time": 1633302242200, "color":c2(123), "label": "8.1s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302234159, "ending_time": 1633302237746, "color":c1(123)}, {"starting_time": 1633302237746, "ending_time": 1633302242209, "color":c2(123), "label": "8.1s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302234197, "ending_time": 1633302237762, "color":c1(121)}, {"starting_time": 1633302237762, "ending_time": 1633302242216, "color":c2(121), "label": "8s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302234258, "ending_time": 1633302237774, "color":c1(121)}, {"starting_time": 1633302237774, "ending_time": 1633302242232, "color":c2(121), "label": "8s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302234316, "ending_time": 1633302237798, "color":c1(123)}, {"starting_time": 1633302237798, "ending_time": 1633302242239, "color":c2(123), "label": "7.9s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302234436, "ending_time": 1633302237819, "color":c1(121)}, {"starting_time": 1633302237819, "ending_time": 1633302242247, "color":c2(121), "label": "7.8s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302234491, "ending_time": 1633302237835, "color":c1(123)}, {"starting_time": 1633302237835, "ending_time": 1633302242254, "color":c2(123), "label": "7.8s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302234532, "ending_time": 1633302237848, "color":c1(123)}, {"starting_time": 1633302237848, "ending_time": 1633302242261, "color":c2(123), "label": "7.7s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302234576, "ending_time": 1633302237863, "color":c1(123)}, {"starting_time": 1633302237863, "ending_time": 1633302242269, "color":c2(123), "label": "7.7s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302234619, "ending_time": 1633302237874, "color":c1(123)}, {"starting_time": 1633302237874, "ending_time": 1633302242278, "color":c2(123), "label": "7.7s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302234655, "ending_time": 1633302237880, "color":c1(121)}, {"starting_time": 1633302237880, "ending_time": 1633302242285, "color":c2(121), "label": "7.6s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302234691, "ending_time": 1633302237894, "color":c1(121)}, {"starting_time": 1633302237894, "ending_time": 1633302242293, "color":c2(121), "label": "7.6s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302234733, "ending_time": 1633302237901, "color":c1(121)}, {"starting_time": 1633302237901, "ending_time": 1633302242301, "color":c2(121), "label": "7.6s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302234768, "ending_time": 1633302237909, "color":c1(123)}, {"starting_time": 1633302237909, "ending_time": 1633302242308, "color":c2(123), "label": "7.5s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302234804, "ending_time": 1633302237914, "color":c1(121)}, {"starting_time": 1633302237914, "ending_time": 1633302242314, "color":c2(121), "label": "7.5s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302234841, "ending_time": 1633302237922, "color":c1(123)}, {"starting_time": 1633302237922, "ending_time": 1633302242321, "color":c2(123), "label": "7.5s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302234877, "ending_time": 1633302237932, "color":c1(121)}, {"starting_time": 1633302237932, "ending_time": 1633302242330, "color":c2(121), "label": "7.5s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302234911, "ending_time": 1633302237938, "color":c1(121)}, {"starting_time": 1633302237938, "ending_time": 1633302242337, "color":c2(121), "label": "7.4s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302234945, "ending_time": 1633302237944, "color":c1(123)}, {"starting_time": 1633302237944, "ending_time": 1633302242344, "color":c2(123), "label": "7.4s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302234979, "ending_time": 1633302237949, "color":c1(121)}, {"starting_time": 1633302237949, "ending_time": 1633302242350, "color":c2(121), "label": "7.4s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302235082, "ending_time": 1633302237955, "color":c1(123)}, {"starting_time": 1633302237955, "ending_time": 1633302242357, "color":c2(123), "label": "7.3s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302235135, "ending_time": 1633302237972, "color":c1(121)}, {"starting_time": 1633302237972, "ending_time": 1633302242366, "color":c2(121), "label": "7.2s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302235177, "ending_time": 1633302237985, "color":c1(123)}, {"starting_time": 1633302237985, "ending_time": 1633302242373, "color":c2(123), "label": "7.2s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302235229, "ending_time": 1633302237990, "color":c1(123)}, {"starting_time": 1633302237990, "ending_time": 1633302242380, "color":c2(123), "label": "7.2s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302235280, "ending_time": 1633302237994, "color":c1(121)}, {"starting_time": 1633302237994, "ending_time": 1633302242387, "color":c2(121), "label": "7.1s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302235321, "ending_time": 1633302238000, "color":c1(121)}, {"starting_time": 1633302238000, "ending_time": 1633302242395, "color":c2(121), "label": "7.1s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302235390, "ending_time": 1633302238005, "color":c1(123)}, {"starting_time": 1633302238005, "ending_time": 1633302242402, "color":c2(123), "label": "7s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302235455, "ending_time": 1633302238010, "color":c1(123)}, {"starting_time": 1633302238010, "ending_time": 1633302242409, "color":c2(123), "label": "7s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302235514, "ending_time": 1633302238015, "color":c1(123)}, {"starting_time": 1633302238015, "ending_time": 1633302242416, "color":c2(123), "label": "6.9s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302235560, "ending_time": 1633302238021, "color":c1(121)}, {"starting_time": 1633302238021, "ending_time": 1633302242429, "color":c2(121), "label": "6.9s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302235597, "ending_time": 1633302238026, "color":c1(121)}, {"starting_time": 1633302238026, "ending_time": 1633302242436, "color":c2(121), "label": "6.8s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302235638, "ending_time": 1633302238037, "color":c1(123)}, {"starting_time": 1633302238037, "ending_time": 1633302242445, "color":c2(123), "label": "6.8s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302235675, "ending_time": 1633302238054, "color":c1(121)}, {"starting_time": 1633302238054, "ending_time": 1633302242452, "color":c2(121), "label": "6.8s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302235715, "ending_time": 1633302238060, "color":c1(123)}, {"starting_time": 1633302238060, "ending_time": 1633302242460, "color":c2(123), "label": "6.7s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302235752, "ending_time": 1633302238065, "color":c1(123)}, {"starting_time": 1633302238065, "ending_time": 1633302242469, "color":c2(123), "label": "6.7s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302235789, "ending_time": 1633302238071, "color":c1(121)}, {"starting_time": 1633302238071, "ending_time": 1633302242478, "color":c2(121), "label": "6.7s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302235834, "ending_time": 1633302238076, "color":c1(121)}, {"starting_time": 1633302238076, "ending_time": 1633302242485, "color":c2(121), "label": "6.7s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302235873, "ending_time": 1633302238083, "color":c1(123)}, {"starting_time": 1633302238083, "ending_time": 1633302242492, "color":c2(123), "label": "6.6s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302235912, "ending_time": 1633302238089, "color":c1(123)}, {"starting_time": 1633302238089, "ending_time": 1633302242500, "color":c2(123), "label": "6.6s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302235974, "ending_time": 1633302238098, "color":c1(123)}, {"starting_time": 1633302238098, "ending_time": 1633302242507, "color":c2(123), "label": "6.5s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302236231, "ending_time": 1633302242514, "color":c1(123)}, {"starting_time": 1633302242514, "ending_time": 1633302242517, "color":c2(123), "label": "6.3s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302236293, "ending_time": 1633302242525, "color":c1(121)}, {"starting_time": 1633302242525, "ending_time": 1633302242528, "color":c2(121), "label": "6.2s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302236370, "ending_time": 1633302242534, "color":c1(123)}, {"starting_time": 1633302242534, "ending_time": 1633302242538, "color":c2(123), "label": "6.2s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302236431, "ending_time": 1633302242540, "color":c1(123)}, {"starting_time": 1633302242540, "ending_time": 1633302242542, "color":c2(123), "label": "6.1s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302236709, "ending_time": 1633302242546, "color":c1(123)}, {"starting_time": 1633302242546, "ending_time": 1633302242550, "color":c2(123), "label": "5.8s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302236977, "ending_time": 1633302242555, "color":c1(121)}, {"starting_time": 1633302242555, "ending_time": 1633302242558, "color":c2(121), "label": "5.6s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302237216, "ending_time": 1633302242564, "color":c1(121)}, {"starting_time": 1633302242564, "ending_time": 1633302242567, "color":c2(121), "label": "5.4s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302237535, "ending_time": 1633302242572, "color":c1(123)}, {"starting_time": 1633302242572, "ending_time": 1633302242576, "color":c2(123), "label": "5s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302237780, "ending_time": 1633302242580, "color":c1(121)}, {"starting_time": 1633302242580, "ending_time": 1633302242584, "color":c2(121), "label": "4.8s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302237906, "ending_time": 1633302242589, "color":c1(123)}, {"starting_time": 1633302242589, "ending_time": 1633302242592, "color":c2(123), "label": "4.7s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302237976, "ending_time": 1633302242598, "color":c1(123)}, {"starting_time": 1633302242598, "ending_time": 1633302242602, "color":c2(123), "label": "4.6s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302238029, "ending_time": 1633302242609, "color":c1(121)}, {"starting_time": 1633302242609, "ending_time": 1633302242613, "color":c2(121), "label": "4.6s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302238104, "ending_time": 1633302242619, "color":c1(123)}, {"starting_time": 1633302242619, "ending_time": 1633302242622, "color":c2(123), "label": "4.5s \/ -"}]},
+{"label": "chr18:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302238138, "ending_time": 1633302242629, "color":c1(123)}, {"starting_time": 1633302242629, "ending_time": 1633302242632, "color":c2(123), "label": "4.5s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302238178, "ending_time": 1633302242638, "color":c1(121)}, {"starting_time": 1633302242638, "ending_time": 1633302242641, "color":c2(121), "label": "4.5s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302238216, "ending_time": 1633302242647, "color":c1(121)}, {"starting_time": 1633302242647, "ending_time": 1633302242651, "color":c2(121), "label": "4.4s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302238263, "ending_time": 1633302242658, "color":c1(121)}, {"starting_time": 1633302242658, "ending_time": 1633302242661, "color":c2(121), "label": "4.4s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302238298, "ending_time": 1633302242668, "color":c1(121)}, {"starting_time": 1633302242668, "ending_time": 1633302242671, "color":c2(121), "label": "4.4s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": [{"starting_time": 1633302238329, "ending_time": 1633302242678, "color":c1(121)}, {"starting_time": 1633302242678, "ending_time": 1633302242682, "color":c2(121), "label": "4.4s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep2.h5.gz)", "times": [{"starting_time": 1633302238362, "ending_time": 1633302242690, "color":c1(121)}, {"starting_time": 1633302242690, "ending_time": 1633302242694, "color":c2(121), "label": "4.3s \/ -"}]},
+{"label": "chrX:splitByChrom:combine_data:COMBINE_PCHIC_CO_SCORE (promoter\/enhancer_hic.t2d_preadipocyte.{split}.rep1.h5.gz)", "times": []}
+]
+
+
+function getTickFormat() {
+  var MIN = 1000 * 60
+  var HOUR = MIN * 60
+  var DAY = HOUR * 24
+  var delta = (endingMillis - beginningMillis)
+
+  if( delta < 2 * MIN ) {
+    return {
+      format: d3.time.format("%S"),
+      tickTime: d3.time.seconds,
+      tickInterval: 5,
+      tickSize: 6
+    }
+  }
+
+  if( delta < 2 * HOUR ) {
+    return {
+      format: d3.time.format("%M"),
+      tickTime: d3.time.minutes,
+      tickInterval: 5,
+      tickSize: 6
+    }
+  }
+
+  if( delta < 2 * DAY ) {
+    return {
+      format: d3.time.format("%H:%M"),
+      tickTime: d3.time.hours,
+      tickInterval: 1,
+      tickSize: 6
+    }
+  }
+
+  if( delta <= 7 * DAY ) {
+    return {
+      format: d3.time.format("%b %e %H:%M"),
+      tickTime: d3.time.hours,
+      tickInterval: 6,
+      tickSize: 6
+    }
+  }
+
+  return {
+    format: d3.time.format("%b %e"),
+    tickTime: d3.time.days,
+    tickInterval: 1,
+    tickSize: 6
+  }
+}
+
+function getLabelMargin(scale) {
+    $('<span class="labelSpan" style="display: none"></span>').appendTo('body');
+
+    var labelMargin = 0
+    $.each(data, function (key, value) {
+      labelMargin = Math.max(labelMargin, $('.labelSpan').html(value.label).width());
+    });
+
+    $('.labelSpan').remove();
+
+    return (labelMargin * scale);
+}
+
+function render() {
+  handler=null;
+  $("#timeline").empty()
+  $('#label_elapsed').text(elapsed)
+  $('#label_launch').text( d3.time.format('%d %b %Y %H:%M')(new Date(beginningMillis)) )
+
+  var width = $(window).width();
+  var chart = d3.timeline()
+    .stack() // toggles graph stacking
+    .margin({left:getLabelMargin(0.85), right:100, top:0, bottom:0})
+    .tickFormat( getTickFormat() )
+    .rowSeperators('#f5f5f5')
+    .showTimeAxisTick()
+    ;
+  var svg = d3.select("#timeline").append("svg").attr("width", width).datum(data).call(chart);
+}
+
+function hrz() {
+if( handler != null ) clearTimeout(handler)
+  handler = setTimeout(render, 150);
+}
+
+$(document).ready(render)
+$(window).resize(hrz); // resize the applet on window resize
+</script>
+</head>
+
+<body>
+<div>
+  <h3>Processes execution timeline</h3>
+  <p>
+    Launch time: <span id='label_launch'> </span><br>
+    Elapsed time: <span id='label_elapsed'> </span><br>
+    Legend: job wall time / memory usage (RAM) <span id='label_legend'> </span>
+  </p>
+  <div id="timeline"></div>
+</div>
+
+<div id='footer'>
+  Created with Nextflow -- <a href='http://www.nextflow.io' target='_blank'>http://nextflow.io</a>
+</div>
+
+<script type="text/javascript">
+var prot = (("https:" == document.location.protocol) ? "https://" : "http://");
+document.write(unescape("%3Clink href='" + prot + "fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css' %3E%3C/link%3E"));
+</script>
+</body>
+</html>

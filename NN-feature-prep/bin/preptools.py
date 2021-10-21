@@ -342,12 +342,13 @@ def GroupGeneSymbol(gtf, elemTransript, elemMid):
     output : 
         grouped (gene, transcripts, elemMid)
     """
+    gene_name='gene' #'gene_name'
     # gtf = gtfparse.read_gtf(gtfF)
     # find transcripts in gtf database. If not found : ignore!
     gtfTS = gtf[gtf['transcript_id'].isin(elemTransript)].copy()
 
     # check if duplicates gene_names for transcript_id exist in gtf file 
-    dupl = gtfTS.groupby('transcript_id')['gene_name'].apply(lambda x:len(np.unique(x))>1)
+    dupl = gtfTS.groupby('transcript_id')[gene_name].apply(lambda x:len(np.unique(x))>1)
     assert sum(dupl)==0 # they shouldn't
 
     valDict = {}
@@ -357,8 +358,8 @@ def GroupGeneSymbol(gtf, elemTransript, elemMid):
 
     gs = gtfTS.groupby('transcript_id').first().reset_index() # since there are no duplicates this statement is useless
     uniqL = lambda series:list(np.unique(series))
-    gs = gs.groupby('gene_name').agg({'gene_name':uniqL, 'transcript_id':list, 'mid':list})
-    return list(zip(gs['gene_name'],gs['mid'],gs['transcript_id']))
+    gs = gs.groupby(gene_name).agg({gene_name:uniqL, 'transcript_id':list, 'mid':list})
+    return list(zip(gs[gene_name],gs['mid'],gs['transcript_id']))
 
 def decompress_dir_recursive(glob_expr):
     for file in glob.glob(glob_expr):

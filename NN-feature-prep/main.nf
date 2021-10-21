@@ -36,7 +36,6 @@ Channel.fromPath("co_score_enh.csv")
   .map { row -> [ row.celltype, row.repetition, file("$row.npz", checkIfExists: true) ]  }
   .set {ch_enh_co_score}
 
-
 if(["val","test","train","all"].contains(params.dtype)){
     dtype = "data_"+params.dtype
 }else{
@@ -80,11 +79,16 @@ workflow combine_data{
     ch_enh_coscore = COMBINE_CO_SCORE_REPS_ENH(ch_hic_coscore)
     ch_pr_coscore = COMBINE_CO_SCORE_REPS_PR(ch_hic_coscore)
 
-    ch__ = ch_hic_aug_split.combine(ch_dnaseq).combine(ch_enhancer_bed_prep).combine(ch_promoter_bed_prep)
-    ch_hic_dnaseq = COMBINE_PCHIC_DNA_SEQ(ch__).groupTuple(by:0)
+    if (params.reuse_dnaseq){
+        ch_enh_dnaseq = ch_hic_aug.map{ it -> [it[0], file("$params.enh_dnaseq")]}
+        ch_pr_dnaseq = ch_hic_aug.map{ it -> [it[0], file("$params.pr_dnaseq")]}
+    }else{
+        ch__ = ch_hic_aug_split.combine(ch_dnaseq).combine(ch_enhancer_bed_prep).combine(ch_promoter_bed_prep)
+        ch_hic_dnaseq = COMBINE_PCHIC_DNA_SEQ(ch__).groupTuple(by:0)
 
-    ch_enh_dnaseq = COMBINE_PCHIC_OUT_ENHANCER(ch_hic_dnaseq) 
-    ch_pr_dnaseq = COMBINE_PCHIC_OUT_PROMOTER(ch_hic_dnaseq) 
+        ch_enh_dnaseq = COMBINE_PCHIC_OUT_ENHANCER(ch_hic_dnaseq) 
+        ch_pr_dnaseq = COMBINE_PCHIC_OUT_PROMOTER(ch_hic_dnaseq) 
+    }
 
     ch_data = ch_enh_coscore
         .join(ch_pr_coscore, by:0)
@@ -169,7 +173,7 @@ workflow splitByChrom{
 }
 
 process RENAME_OUT {
-    storeDir "${params.store_dir}"
+    storeDir "${params.save_dir}"
     errorStrategy 'finish'
 
     input:
@@ -182,7 +186,7 @@ process RENAME_OUT {
     // myFile.renameTo("${dataType}.${chrom}.${cellType}.tar.gz")
     script: 
     """
-    ln -s `readlink -f $data_gz` ${dataType}.${chrom}.${cellType}.tar.gz
+    cp -P $data_gz ${dataType}.${chrom}.${cellType}.tar.gz
     """
 }
 

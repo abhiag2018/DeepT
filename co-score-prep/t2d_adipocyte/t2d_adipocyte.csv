@@ -1,0 +1,5 @@
+celltype,repetition,bam
+
+t2d_adipocyte,1,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/CUBE_T2D/adipose/t2d_adipocyte/adipocyte_R1.mLb.clN.sorted.bam
+t2d_adipocyte,2,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/CUBE_T2D/adipose/t2d_adipocyte/adipocyte_R2.mLb.clN.sorted.bam
+t2d_adipocyte,3,/projects/li-lab/agarwa/CUBE/DeepTact/dataset/CUBE_T2D/adipose/t2d_adipocyte/adipocyte_R3.mLb.clN.sorted.bam
